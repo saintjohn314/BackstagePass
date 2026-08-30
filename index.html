@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backstage Pass: Venue Simulator</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #08080a;
+            color: #d1d1d1;
+        }
+
+        #game-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #0f1013;
+            background-size: cover;
+            background-position: center;
+            filter: brightness(0.3) contrast(1.2);
+            z-index: 1;
+        }
+
+        #game-container {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .screen {
+            display: none;
+            flex-direction: column;
+            background: rgba(18, 18, 22, 0.96);
+            border: 2px solid #333;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9), inset 0 0 20px rgba(0, 0, 0, 0.8);
+            border-radius: 2px;
+            padding: 20px;
+            max-width: 860px;
+            width: 100%;
+            max-height: 94vh;
+            overflow-y: auto;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        .screen-full-content {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #111; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: #8b0000; }
+
+        #screen-splash {
+            background: url('cover.jpg') no-repeat center center;
+            background-size: contain;
+            background-color: #000000;
+            border: 2px solid #000000;
+            height: 100vh;
+            max-height: 100vh;
+            max-width: 100vw;
+            width: 100vw;
+            border-radius: 0;
+            justify-content: flex-end;
+            align-items: center;
+            padding-bottom: 30px;
+            cursor: pointer;
+        }
+
+        .splash-prompt {
+            background: rgba(14, 14, 18, 0.85);
+            padding: 8px 16px;
+            border: 1px solid #ff3333;
+            text-align: center;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.8; }
+            50% { opacity: 1; border-color: #fff; }
+            100% { opacity: 0.8; }
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 12px;
+            border-bottom: 2px dashed #444;
+            padding-bottom: 8px;
+            flex-shrink: 0;
+        }
+
+        .panel-header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .panel-header h2 {
+            font-size: 0.95rem;
+            letter-spacing: 2px;
+            color: #ff3333;
+            text-transform: uppercase;
+        }
+
+        .section-desc {
+            font-size: 0.75rem;
+            color: #888;
+            margin-bottom: 10px;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .game-title {
+            font-size: 2.4rem;
+            font-weight: bold;
+            font-style: italic;
+            color: #f2f2f2;
+            text-shadow: 3px 3px 0px #800;
+            letter-spacing: 3px;
+            text-align: center;
+        }
+
+        .game-subtitle {
+            font-size: 0.9rem;
+            color: #ff3333;
+            margin-bottom: 25px;
+            letter-spacing: 5px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .menu-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        button {
+            padding: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 2px;
+            border: 1px solid #444;
+            transition: all 0.15s ease-in-out;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.8rem;
+        }
+
+        button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: #8b0000;
+            color: #fff;
+            border-color: #b22222;
+            width: 100%;
+            margin-top: 8px;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #a52a2a;
+            box-shadow: 0 0 10px rgba(139, 0, 0, 0.6);
+        }
+
+        .btn-secondary {
+            background: #1a1a1f;
+            color: #ccc;
+            border: 1px solid #444;
+            width: 100%;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #282830;
+            color: #fff;
+            border-color: #777;
+        }
+
+        .btn-back {
+            background: #222;
+            color: #aaa;
+            border: 1px solid #444;
+            padding: 4px 8px;
+            font-size: 0.7rem;
+            margin-top: 0;
+            width: auto;
+        }
+
+        .btn-back:hover { background: #444; color: #fff; }
+
+        .catalog-container {
+            width: 100%;
+            max-height: 48vh;
+            overflow-y: auto;
+            padding-right: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex-grow: 1;
+        }
+
+        .venue-card, .band-card, .upgrade-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #121216;
+            border: 1px solid #333;
+            padding: 10px;
+            border-radius: 2px;
+            width: 100%;
+            gap: 10px;
+        }
+
+        .venue-card.unlocked, .band-card.booked, .upgrade-card.owned { border-color: #8b0000; }
+        .band-card.booked, .upgrade-card.owned { background: rgba(139, 0, 0, 0.15); }
+
+        .story-box {
+            background: #15151a;
+            border: 1px solid #333;
+            padding: 14px;
+            border-radius: 2px;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            margin-bottom: 12px;
+            width: 100%;
+        }
+
+        .story-box p { margin-bottom: 10px; color: #ccc; }
+
+        .form-group { width: 100%; margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 0.75rem; margin-bottom: 4px; color: #ff3333; text-transform: uppercase; letter-spacing: 1px; }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            background: #121216;
+            border: 1px solid #444;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+            border-radius: 2px;
+        }
+
+        input[type="text"]:focus {
+            border-color: #ff3333;
+            outline: none;
+        }
+
+        .marketing-options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+
+        .market-card {
+            background: #121216;
+            border: 1px solid #333;
+            padding: 10px;
+            border-radius: 2px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.1s ease;
+        }
+
+        .market-card:hover { border-color: #777; background: #1a1a20; }
+        .market-card.selected { border-color: #ff3333; background: rgba(139,0,0,0.2); }
+        .market-card h4 { font-size: 0.75rem; color: #fff; margin-bottom: 2px; }
+        .market-card p { font-size: 0.65rem; color: #888; }
+
+        .checklist-group {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 12px;
+            font-size: 0.75rem;
+            background: #15151a;
+            border: 1px solid #333;
+            padding: 8px;
+            border-radius: 2px;
+        }
+
+        .hype-display, .stats-box {
+            width: 100%;
+            background: #15151a;
+            border: 1px solid #333;
+            padding: 10px;
+            border-radius: 2px;
+            margin-bottom: 10px;
+            font-size: 0.75rem;
+        }
+
+        .stats-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+
+        .progress-track {
+            width: 100%;
+            height: 6px;
+            background: #222;
+            border: 1px solid #444;
+            border-radius: 2px;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: #8b0000;
+            transition: width 0.2s linear;
+        }
+
+        .floor-designer-layout {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+            flex-grow: 1;
+            align-items: flex-start;
+        }
+
+        .architectural-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #0d0d11;
+            border: 2px solid #444;
+            padding: 10px;
+            border-radius: 2px;
+            margin: 0 auto;
+        }
+
+        .venue-boundary-tag {
+            background: #1c1c24;
+            border: 1px dashed #666;
+            color: #ff5555;
+            font-size: 0.65rem;
+            text-align: center;
+            padding: 3px;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: bold;
+        }
+
+        .floor-grid-container {
+            display: grid;
+            gap: 2px;
+            background: #0a0a0d;
+            padding: 4px;
+        }
+
+        .floor-cell {
+            background: #16161b;
+            border: 1px solid #2a2a35;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.6rem;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.1s;
+            text-align: center;
+            font-weight: bold;
+            width: 32px;
+            height: 32px;
+        }
+
+        .floor-cell:hover {
+            border-color: #ff3333;
+            background: #22222c;
+        }
+
+        .furniture-toolbar {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            width: 220px;
+            flex-shrink: 0;
+        }
+
+        .furn-tool-btn {
+            background: #121216;
+            border: 1px solid #444;
+            padding: 8px;
+            text-align: left;
+            font-size: 0.7rem;
+            color: #ccc;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+
+        .furn-tool-btn:hover { border-color: #ff3333; color: #fff; }
+        .furn-tool-btn.active { border-color: #ff3333; background: rgba(139,0,0,0.3); color: #fff; }
+  </style>
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+</head>
+<body onkeydown="Game.handleKeyPress(event)" onload="Game.init()">
+    <audio id="click-sound" src="click.mp3" preload="auto"></audio>
+    <audio id="save-ding" src="save-ding.mp3" preload="auto"></audio>
+    <audio id="money-sound" src="money.mp3" preload="auto"></audio>
+    <audio id="splash-music" src="splash-music.mp3" preload="auto" loop></audio>
+
+    <div id="game-background"></div>
+    
+    <div id="game-container">
+       <!-- Screen 0: Splash -->
+       <div id="screen-splash" class="screen active" tabindex="0" autofocus onclick="Game.enterMainFromSplash()">
+           <div class="splash-prompt" onclick="event.stopPropagation(); Game.enterMainFromSplash();">
+               <p style="font-size: 0.75rem; color: #ff3333; letter-spacing: 2px; font-weight: bold;">GO BACKSTAGE</p>
+           </div>
+       </div>
+
+        <!-- Screen 1: Main Menu -->
+        <div id="screen-main-menu" class="screen">
+            <h1 class="game-title">BACKSTAGE PASS</h1>
+            <h2 class="game-subtitle">VENUE SIMULATOR</h2>
+            <div class="screen-full-content" style="flex-direction: row; gap: 16px; justify-content: space-between; overflow: hidden;">
+                <div style="display: flex; flex-direction: column; flex-grow: 1; justify-content: center;">
+                    <div class="menu-buttons">
+                        <button class="btn-primary" onclick="Game.startNewGame()">NEW GAME</button>
+                        <button class="btn-secondary" id="load-game-btn" onclick="Game.loadGame()" disabled>LOAD TOUR</button>
+                        <button class="btn-secondary" onclick="Game.saveGameFromMenu()">SAVE GAME</button>
+                        <button class="btn-secondary" onclick="Game.switchScreen('screen-settings')">SETTINGS & RULEBOOK</button>
+                    </div>
+                </div>
+                <div style="width: 220px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; background: #121216; border: 1px solid #333; border-radius: 2px; padding: 6px; align-self: stretch;">
+                    <div style="width: 100%; height: 100%; background: url('menu-side.jpg') center/cover no-repeat; border: 1px solid #222; min-height: 200px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 1B: Settings & Rulebook -->
+        <div id="screen-settings" class="screen">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <button class="btn-back" onclick="Game.goBack()">◄ BACK</button>
+                    <h2>SETTINGS & RULEBOOK</h2>
+                </div>
+            </div>
+            <div class="screen-full-content" style="flex-direction: row; gap: 16px; justify-content: space-between; overflow: hidden;">
+                <div style="display: flex; flex-direction: column; flex-grow: 1; overflow-y: auto; padding-right: 4px;">
+                    <div class="form-group">
+                        <label>Master Volume: <span id="setting-vol-val">80</span>%</label>
+                        <input type="range" id="setting-vol-slider" min="0" max="100" value="80" oninput="Game.updateSettingsFromUI()" style="width:100%; accent-color:#8b0000; background:#222;">
+                    </div>
+                    <div class="form-group">
+                        <label>Sound Effects</label>
+                        <button class="btn-secondary" id="setting-sfx-btn" onclick="Game.toggleSFX()" style="margin-top:2px;">SFX: ENABLED</button>
+                    </div>
+                    <div class="story-box" style="margin-top:10px;">
+                        <h3 style="color:#ff3333; font-size:0.75rem; margin-bottom:4px; text-transform:uppercase;">GAME RULEBOOK</h3>
+                        <p style="font-size:0.7rem; color:#aaa; margin-bottom:4px;">1. Acquire real estate from the venue marketplace using starting capital ($7,500 / $12,500+).</p>
+                        <p style="font-size:0.7rem; color:#aaa; margin-bottom:4px;">2. Name your company and venue to establish your legacy.</p>
+                        <p style="font-size:0.7rem; color:#aaa; margin-bottom:4px;">3. Design your floor plan layout with seating, bars, and VIP zones.</p>
+                        <p style="font-size:0.7rem; color:#aaa; margin-bottom:4px;">4. Navigate events, book talent, open doors, and expand your empire.</p>
+                    </div>
+                    <button class="btn-primary" onclick="Game.goBack()" style="margin-top:auto;">APPLY & RETURN</button>
+                </div>
+                <div style="width: 220px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; background: #121216; border: 1px solid #333; border-radius: 2px; padding: 6px; align-self: stretch;">
+                    <div style="width: 100%; height: 100%; background: url('settings-side.jpg') center/cover no-repeat; border: 1px solid #222; min-height: 200px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 2: Chapter 1 Story Intro -->
+        <div id="screen-intro" class="screen">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <button class="btn-back" onclick="Game.goBack()">◄ BACK</button>
+                    <h2>CHAPTER 1: HARD RESET</h2>
+                </div>
+            </div>
+            <div class="screen-full-content" style="flex-direction: row; gap: 16px; justify-content: space-between; overflow: hidden;">
+                <div style="display: flex; flex-direction: column; flex-grow: 1; justify-content: center;">
+                    <div class="story-box">
+                        <p>After a grueling decade recording albums and sleeping in tour vans, your band broke up and your savings dried up.</p>
+                        <p>You managed to secure a small backer stake and now have exactly <strong>$5,000</strong> to your name. No venues are handed out for free in this town.</p>
+                        <p>You need to purchase your first dilapidated space from scratch and build a DIY gig empire from the ground up.</p>
+                    </div>
+                    <button class="btn-primary" onclick="Game.switchScreen('screen-venue-selector')">ACQUIRE YOUR FIRST VENUE</button>
+                </div>
+                <div style="width: 220px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; background: #121216; border: 1px solid #333; border-radius: 2px; padding: 6px; align-self: stretch;">
+                    <div style="width: 100%; height: 100%; background: url('intro-side.jpg') center/cover no-repeat; border: 1px solid #222; min-height: 200px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 3: Venue Selector & Purchase -->
+        <div id="screen-venue-selector" class="screen">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <button class="btn-back" onclick="Game.switchScreen('screen-intro')">◄ BACK</button>
+                    <h2>VENUE MARKETPLACE</h2>
+                </div>
+                <div>
+                    <span id="calendar-tracker-venues" style="color: #aaa; font-size: 0.75rem; margin-right: 10px;">WEEK 1, DAY 1</span>
+                    <span id="player-funds-venue" style="color: #ff3333; font-weight: bold; font-size:0.8rem;">$5,000</span>
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px; width: 100%; margin-bottom: 10px;">
+                <button class="btn-secondary" onclick="Game.switchScreen('screen-office')" style="background: #181822; border-color: #ff3333; color: #ff3333;">OFFICE & STATS</button>
+            </div>
+            <div class="screen-full-content" style="flex-direction: row; gap: 16px; justify-content: space-between; overflow: hidden;">
+                <div style="display: flex; flex-direction: column; flex-grow: 1; overflow: hidden;">
+                    <p class="section-desc">Purchase or manage your real estate:</p>
+                    <div class="catalog-container" id="venue-list"></div>
+                </div>
+                <div style="width: 220px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; background: #121216; border: 1px solid #333; border-radius: 2px; padding: 6px; align-self: stretch;">
+                    <div style="width: 100%; height: 100%; background: url('venue-side.jpg') center/cover no-repeat; border: 1px solid #222; min-height: 200px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 3A2: Venue & Company Identity Setup -->
+        <div id="screen-identity-setup" class="screen">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <button class="btn-back" onclick="Game.switchScreen('screen-venue-selector')">◄ BACK</button>
+                    <h2>ESTABLISH IDENTITY</h2>
+                </div>
+                <span id="player-funds-identity" style="color: #ff3333; font-weight: bold; font-size:0.8rem;">$5,000</span>
+            </div>
+            <div class="screen-full-content" style="flex-direction: row; gap: 16px; justify-content: space-between; overflow: hidden;">
+                <div style="display: flex; flex-direction: column; flex-grow: 1; justify-content: center;">
+                    <div class="story-box">
+                        <p>You've secured the keys to your first property! Before opening the doors, establish your official corporate branding and venue title.</p>
+                    </div>
+                    <div class="form-group">
+                        <label>Company / Promoter Name</label>
+                        <input type="text" id="input-company-name" value="Underground Empire" placeholder="e.g. Iron Fist Promotions">
+                    </div>
+                    <div class="form-group">
+                        <label>Venue Name</label>
+                        <input type="text" id="input-venue-custom-name" value="The Warehouse" placeholder="e.g. The Riot Room">
+                    </div>
+                    <button class="btn-primary" onclick="Game.saveIdentityAndProceed()" style="margin-top:auto;">PROCEED TO FLOOR PLAN DESIGNER</button>
+                </div>
+                <div style="width: 220px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; background: #121216; border: 1px solid #333; border-radius: 2px; padding: 6px; align-self: stretch;">
+                    <div style="width: 100%; height: 100%; background: url('identity-side.jpg') center/cover no-repeat; border: 1px solid #222; min-height: 200px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 3B: Floor Plan Designer -->
+        <div id="screen-floor-designer" class="screen">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <button class="btn-back" onclick="Game.switchScreen('screen-venue-selector')">◄ BACK</button>
+                    <h2 id="designer-panel-title">FLOOR PLAN DESIGNER</h2>
+                </div>
+                <span id="player-funds-designer" style="color: #ff3333; font-weight: bold; font-size:0.8rem;">$5,000</span>
+            </div>
+            <div class="screen-full-content" style="flex-direction: row; gap: 16px; justify-content: space-between; overflow: visible;">
+                <div style="display: flex; flex-direction: column; flex-grow: 1; overflow-y: auto;">
+                    <p class="section-desc">Place interior assets (Seating & VIP span 2 squares):</p>
+                    <div class="floor-designer-layout">
+                        <div style="display:flex; flex-direction:column; align-items:center; flex-grow:1;">
+                            <div class="architectural-wrapper">
+                                <div class="venue-boundary-tag">🎸 [ FRONT STAGE / PERFORMER ZONE ]</div>
+                                <div style="height:6px;"></div>
+                                <div id="floor-grid-box" class="floor-grid-container"></div>
+                                <div style="height:6px;"></div>
+                                <div class="venue-boundary-tag" style="color: #33ff33; border-color: #226622;">🚪 [ REAR EMERGENCY & STREET EXIT ]</div>
+                            </div>
+                            <p style="font-size:0.65rem; color:#888; margin-top:6px;">Click cell to place selected asset or remove item.</p>
+                        </div>
+                        <div class="furniture-toolbar">
+                            <span style="font-size:0.7rem; color:#ff3333; text-transform:uppercase; letter-spacing:1px; margin-bottom:2px;">Assets & Decor</span>
+                            <button class="furn-tool-btn active" id="tool-bar" onclick="Game.selectDesignerTool('bar', 75)">🍺 Bar ($75)</button>
+                            <button class="furn-tool-btn" id="tool-bathroom" onclick="Game.selectDesignerTool('bathroom', 200)">🚻 Bathrooms ($200)</button>
+                            <button class="furn-tool-btn" id="tool-vip" onclick="Game.selectDesignerTool('vip', 100)">✨ VIP Section 2x1 ($100)</button>
+                            <button class="furn-tool-btn" id="tool-seating" onclick="Game.selectDesignerTool('seating', 20)">🪑 Seating 2x1 ($20)</button>
+                            <button class="furn-tool-btn" id="tool-lighting" onclick="Game.selectDesignerTool('lighting', 100)">💡 Lighting Rig ($100)</button>
+                            <button class="furn-tool-btn" id="tool-pa" onclick="Game.selectDesignerTool('pa', 120)">🔊 PA System ($120)</button>
+                            <button class="furn-tool-btn" id="tool-erase" onclick="Game.selectDesignerTool('erase', 0)" style="border-color:#551111; color:#ff5555; margin-top:6px;">🗑️ Demolish / Clear</button>
+                        </div>
+                    </div>
+                    <button class="btn-primary" onclick="Game.proceedToScouting()" style="margin-top:12px;">PROCEED TO BAND SCOUTING</button>
+                </div>
+                <div style="width: 220px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; background: #121216; border: 1px solid #333; border-radius: 2px; padding: 6px; align-self: stretch;">
+                    <div style="width: 100%; height: 100%; background: url('floorplan-side.jpg') center/cover no-repeat; border: 1px solid #222; min-height: 200px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 3C: Director's Office -->
+        <div id="screen-office" class="screen">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <button class="btn-back" onclick="Game.switchScreen('screen-venue-selector')">◄ BACK</button>
+                    <h2>DIRECTOR'S OFFICE</h2>
+                </div>
+                <span id="calendar-tracker-office" style="color: #aaa; font-size: 0.75rem;">WEEK 1, DAY 1</span>
+            </div>
+            <div class="screen-full-content" style="flex-direction: row; gap: 16px; justify-content: space-between; overflow: hidden;">
+                <div style="display: flex; flex-direction: column; flex-grow: 1; justify-content: center;">
+                    <div class="story-box">
+                        <p>Stacks of invoices, acoustic insulation foam peeling off the walls, and a desk littered with guitar picks. Your command center.</p>
+                    </div>
+                    <div class="stats-box">
+                        <div class="stats-row"><span>Company Name:</span> <strong id="office-company-name" style="color: #fff;">Underground Empire</strong></div>
+                        <div class="stats-row"><span>Corporate Standing:</span> <strong id="office-grade" style="color: #ff3333;">D (DIY Underdog)</strong></div>
+                        <div class="stats-row"><span>Current Bank Balance:</span> <strong id="office-funds" style="color: #33ff33;">$5,000</strong></div>
+                        <div class="stats-row"><span>Total Lifetime Revenue:</span> <strong id="office-lifetime-rev" style="color: #eee;">$0</strong></div>
+                        <div class="stats-row"><span>Venues Owned / Total:</span> <strong id="office-venues-owned">0 / 8</strong></div>
+                        <div class="stats-row"><span>Successful Shows Hosted:</span> <strong id="office-shows-hosted">0</strong></div>
+                    </div>
+                    <button class="btn-primary" onclick="Game.switchScreen('screen-venue-selector')">RETURN TO MARKETPLACE</button>
+                </div>
+                <div style="width: 220px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; background: #121216; border: 1px solid #333; border-radius: 2px; padding: 6px; align-self: stretch;">
+                    <div style="width: 100%; height: 100%; background: url('office-side.jpg') center/cover no-repeat; border: 1px solid #222; min-height: 200px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 4: Random Event Card Phase -->
+        <div id="screen-event-card" class="screen">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <h2>INCOMING EVENT</h2>
+                </div>
+                <span id="calendar-tracker-event" style="color: #aaa; font-size: 0.75rem;">WEEK 1, DAY 1</span>
+            </div>
+            <div class="screen-full-content" style="flex-direction: row; gap: 16px; justify-content: space-between; overflow: hidden;">
+                <div style="display: flex; flex-direction: column; flex-grow: 1; justify-content: center;">
+                    <div class="story-box" id="event-story-box" style="border-color: #8b0000;">
+                        <h3 id="event-card-title" style="color:#ff3333; font-size:0.9rem; margin-bottom:8px; text-transform:uppercase;">CITY ORDINANCE INSPECTION</h3>
+                        <p id="event-card-desc" style="color:#ddd; font-size:0.8rem;">Local authorities dropped by the venue block to review fire safety codes and sound permits.</p>
+                    </div>
+                    <div id="event-choices-container" style="display:flex; flex-direction:column; gap:8px; width:100%; margin-top:auto;">
+                        <button class="btn-primary" onclick="Game.resolveEvent('bribe')">PAY OFF INSPECTOR (-$150)</button>
+                        <button class="btn-secondary" onclick="Game.resolveEvent('comply')">COMPLY & DELAY SHOW (-10 HYPE)</button>
+                    </div>
+                </div>
+                <div style="width: 220px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; background: #121216; border: 1px solid #333; border-radius: 2px; padding: 6px; align-self: stretch;">
+                    <div style="width: 100%; height: 100%; background: url('event-side.jpg') center/cover no-repeat; border: 1px solid #222; min-height: 200px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 5: Band Scouting -->
+        <div id="screen-band-scouting" class="screen">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <button class="btn-back" onclick="Game.switchScreen('screen-floor-designer')">◄ BACK</button>
+                    <h2>SCOUT LINEUP</h2>
+                </div>
+                <div>
+                    <span id="calendar-tracker-bands" style="color: #aaa; font-size: 0.75rem; margin-right: 10px;">WEEK 1, DAY 1</span>
+                    <span id="player-funds-bands" style="color: #ff3333; font-weight: bold; font-size:0.8rem;">$5,000</span>
+                </div>
+            </div>
+            <div class="screen-full-content" style="flex-direction: row; gap: 16px; justify-content: space-between; overflow: hidden;">
+                <div style="display: flex; flex-direction: column; flex-grow: 1; overflow: hidden;">
+                    <p class="section-desc">Sign local acts for your upcoming show:</p>
+                    <div class="catalog-container" id="band-list"></div>
+                    <button class="btn-primary" id="proceed-btn" onclick="Game.proceedToMarketing()" disabled style="margin-top:10px;">PROCEED TO MARKETING</button>
+                </div>
+                <div style="width: 220px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; background: #121216; border: 1px solid #333; border-radius: 2px; padding: 6px; align-self: stretch;">
+                    <div style="width: 100%; height: 100%; background: url('scout-side.jpg') center/cover no-repeat; border: 1px solid #222; min-height: 200px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 6: Streamlined Marketing & Setup -->
+        <div id="screen-marketing" class="screen">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <button class="btn-back" onclick="Game.switchScreen('screen-band-scouting')">◄ BACK</button>
+                    <h2>SHOW SETUP & MARKETING</h2>
+                </div>
+                <div>
+                    <span id="calendar-tracker-marketing" style="color: #aaa; font-size: 0.75rem; margin-right: 10px;">WEEK 1, DAY 1</span>
+                    <span id="player-funds-marketing" style="color: #ff3333; font-weight: bold; font-size:0.8rem;">$5,000</span>
+                </div>
+            </div>
+            <div class="screen-full-content" style="flex-direction: row; gap: 16px; justify-content: space-between; overflow: hidden;">
+                <div style="display: flex; flex-direction: column; flex-grow: 1; justify-content: center;">
+                    <p class="section-desc">Choose promotional strategy:</p>
+                    <div class="marketing-options-grid">
+                        <div class="market-card selected" id="market-flyers" onclick="Game.selectMarketing('flyers', 40)">
+                            <h4>Xerox Flyers</h4>
+                            <p>Cost: $40 | Low Buzz</p>
+                        </div>
+                        <div class="market-card" id="market-zines" onclick="Game.selectMarketing('zines', 120)">
+                            <h4>Local Scene Zines</h4>
+                            <p>Cost: $120 | Moderate Buzz</p>
+                        </div>
+                        <div class="market-card" id="market-social" onclick="Game.selectMarketing('social', 250)">
+                            <h4>Social Ad Blast</h4>
+                            <p>Cost: $250 | High Buzz</p>
+                        </div>
+                        <div class="market-card" id="market-street" onclick="Game.selectMarketing('street', 500)">
+                            <h4>Street Team Squad</h4>
+                            <p>Cost: $500 | Massive Buzz</p>
+                        </div>
+                    </div>
+                    <div class="checklist-group">
+                        <label><input type="checkbox" id="check-security" checked onchange="Game.updateMarketingTotal()"> Heavy Security ($100)</label>
+                        <label><input type="checkbox" id="check-merch" checked onchange="Game.updateMarketingTotal()"> Merch Booth ($40)</label>
+                    </div>
+                    <div class="hype-display">
+                        <span>Total Upfront Outlay:</span> <strong id="marketing-total-cost" style="color: #ff3333;">$180</strong>
+                    </div>
+                    <button class="btn-primary" onclick="Game.launchShow()">OPEN DOORS & START SHOW</button>
+                </div>
+                <div style="width: 220px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; background: #121216; border: 1px solid #333; border-radius: 2px; padding: 6px; align-self: stretch;">
+                    <div style="width: 100%; height: 100%; background: url('marketing-side.jpg') center/cover no-repeat; border: 1px solid #222; min-height: 200px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 7: Live Show Interactivity Monitor -->
+        <div id="screen-live-show" class="screen">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <h2>LIVE SHOW MONITOR</h2>
+                </div>
+                <div>
+                    <span id="calendar-tracker-live" style="color: #aaa; font-size: 0.75rem; margin-right: 10px;">WEEK 1, DAY 1</span>
+                    <span id="player-funds-live" style="color: #ff3333; font-weight: bold; font-size: 0.8rem; margin-right: 10px;">$5,000</span>
+                    <span style="color: #ff3333; font-weight: bold; font-size:0.8rem;" id="live-status">DOORS OPENING</span>
+                </div>
+            </div>
+            <div class="screen-full-content" style="flex-direction: row; gap: 16px; justify-content: space-between; overflow: hidden;">
+                <div style="display: flex; flex-direction: column; flex-grow: 1; justify-content: center; overflow-y: auto;">
+                    <div class="progress-track">
+                        <div class="progress-fill" id="live-progress-bar"></div>
+                    </div>
+                    <div class="stats-box">
+                        <div class="stats-row"><span>Venue:</span> <strong id="live-venue-name" style="color:#ff3333;">None</strong></div>
+                        <div class="stats-row"><span>Headcount:</span> <strong id="live-attendance">0 / 0 (0% Cap)</strong></div>
+                        <div class="stats-row"><span>Crowd Vibe:</span> <strong id="live-vibe" style="color: #ff5555;">GATHERING OUTSIDE</strong></div>
+                        <div class="stats-row"><span>Bar Tab Cut:</span> <strong id="live-bar">$0</strong></div>
+                        <div class="stats-row"><span>Merch Cut:</span> <strong id="live-merch">$0</strong></div>
+                    </div>
+                    <div class="hype-display" id="interactive-crisis-box" style="background: rgba(139,0,0,0.2); border-color: #500; display:none;">
+                        <span id="crisis-prompt-title" style="color:#ff3333; display:block; margin-bottom:4px; font-weight:bold;">STAGE EVENT CRISIS</span>
+                        <p id="crisis-prompt-desc" style="color:#ccc; font-size:0.7rem; margin-bottom:8px;">A mosh pit dispute has broken out near the front barrier!</p>
+                        <div style="display:flex; gap:8px;">
+                            <button class="btn-primary" style="margin-top:0; padding:4px 8px; font-size:0.7rem;" onclick="Game.resolveCrisis('intervene')">SEND SECURITY (-$50)</button>
+                            <button class="btn-secondary" style="margin-top:0; padding:4px 8px; font-size:0.7rem;" onclick="Game.resolveCrisis('ignore')">LET THEM SORT IT (-10 VIBE)</button>
+                        </div>
+                    </div>
+                    <div class="hype-display" id="normal-stage-log">
+                        <span>Stage Log:</span> <strong id="live-stage-log" style="color: #ff6666;">Fans lining up at the front gate...</strong>
+                    </div>
+                    <button class="btn-primary" id="finish-show-btn" onclick="Game.finishShow()" disabled style="margin-top:10px;">SHOW IN PROGRESS...</button>
+                </div>
+                <div style="width: 220px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; background: #121216; border: 1px solid #333; border-radius: 2px; padding: 6px; align-self: stretch;">
+                    <div style="width: 100%; height: 100%; background: url('liveshow-side.jpg') center/cover no-repeat; border: 1px solid #222; min-height: 200px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 8: Post-Show Summary -->
+        <div id="screen-post-show" class="screen">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <h2>POST-SHOW REPORT</h2>
+                </div>
+                <div>
+                    <span id="calendar-tracker-post" style="color: #aaa; font-size: 0.75rem; margin-right: 10px;">WEEK 1, DAY 1</span>
+                    <span style="color: #33ff33; font-weight: bold; font-size:0.8rem;">SUCCESS</span>
+                </div>
+            </div>
+            <div class="screen-full-content" style="flex-direction: row; gap: 16px; justify-content: space-between; overflow: hidden;">
+                <div style="display: flex; flex-direction: column; flex-grow: 1; justify-content: center;">
+                    <div class="stats-box">
+                        <div class="stats-row"><span>Attendance:</span> <strong id="summary-attendance" style="color: #eee;">0 / 0</strong></div>
+                        <div class="stats-row"><span>Ticket Cut:</span> <strong id="summary-tickets">$0</strong></div>
+                        <div class="stats-row"><span>Bar Cut:</span> <strong id="summary-bar">$0</strong></div>
+                        <div class="stats-row"><span>Merch Cut:</span> <strong id="summary-merch">$0</strong></div>
+                        <div class="stats-row" style="border-top: 1px dashed #444; padding-top: 6px; margin-top: 4px;"><span>Gross Payout:</span> <strong id="summary-gross" style="color: #ff3333;">$0</strong></div>
+                        <div class="stats-row"><span>New Bank Total:</span> <strong id="summary-bank" style="color: #33ff33;">$5,000</strong></div>
+                    </div>
+                    <div class="menu-buttons" style="margin-top: 5px;">
+                        <button class="btn-primary" onclick="Game.proceedToNextGigCycle()">BOOK NEXT TOUR WEEK</button>
+                        <button class="btn-secondary" onclick="Game.saveAndReturnToMain()">SAVE & MAIN MENU</button>
+                    </div>
+                </div>
+                <div style="width: 220px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; background: #121216; border: 1px solid #333; border-radius: 2px; padding: 6px; align-self: stretch;">
+                    <div style="width: 100%; height: 100%; background: url('postshow-side.jpg') center/cover no-repeat; border: 1px solid #222; min-height: 200px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dedicated Screen Modal for Alerts / Warnings -->
+        <div id="screen-modal-alert" class="screen">
+            <div class="panel-header">
+                <h2 id="modal-alert-header">NOTICE</h2>
+            </div>
+            <div class="screen-full-content" style="justify-content: center; align-items: center; text-align: center;">
+                <div class="story-box" style="border-color: #8b0000; margin-bottom: 20px;">
+                    <p id="modal-alert-message" style="color: #fff; font-size: 0.85rem; margin-bottom: 0;">Message content goes here.</p>
+                </div>
+                <button class="btn-primary" onclick="Game.closeModalAlert()" style="max-width: 200px; margin-top: 0;">ACKNOWLEDGE</button>
+            </div>
+        </div>
+
+        <!-- Screen 9: Saved Notification Overlay -->
+        <div id="screen-saved-notice" class="screen">
+            <div class="panel-header">
+                <h2>TOUR STATUS</h2>
+            </div>
+            <div class="screen-full-content" style="justify-content: center; align-items: center; text-align: center;">
+                <h1 style="color: #33ff33; font-size: 2rem; letter-spacing: 3px; text-shadow: 0 0 10px rgba(51,255,51,0.5);">*SAVED*</h1>
+                <p style="color: #888; font-size: 0.8rem; margin-top: 10px;">PROGRESS LOGGED TO LOCAL STORAGE</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SoundManager = {
+            playSFX(id) {
+                if (!Game.state.settings.sfxEnabled) return;
+                const audio = document.getElementById(id);
+                if (audio) {
+                    audio.currentTime = 0;
+                    audio.volume = Game.state.settings.volume / 100;
+                    audio.play().catch(e => console.log("Audio prevented:", e));
+                }
+            },
+            setMasterVolume(vol) {
+                const volLvl = vol / 100;
+                document.querySelectorAll('audio').forEach(a => {
+                    if (a.id !== 'splash-music') a.volume = volLvl;
+                });
+            }
+        };
+
+        document.addEventListener('click', function(event) {
+            if (event.target.tagName === 'BUTTON' || event.target.classList.contains('clickable')) {
+                SoundManager.playSFX('click-sound');
+            }
+        });
+
+        const Game = {
+            state: {
+                funds: 5000,
+                lifetimeRevenue: 0,
+                showsHosted: 0,
+                day: 1,
+                week: 1,
+                companyName: "Underground Empire",
+                settings: { volume: 80, sfxEnabled: true },
+                currentVenue: null,
+                selectedBand: null,
+                marketingChoice: { id: 'flyers', cost: 40, buzz: 35 },
+                activeEvent: null,
+                liveTimer: null,
+                crisisActive: false,
+                modalReturnScreen: 'screen-venue-selector',
+                designerTool: { type: 'bar', cost: 75 },
+                venues: [
+                    { id: 'warehouse', name: 'Abandoned Warehouse', capacity: 70, rating: 'C-', unlocked: false, cost: 3500, gridCols: 6, gridRows: 6, floorGrid: {}, itemCosts: {}, desc: 'A grungy industrial shell. Perfect starting DIY space.' },
+                    { id: 'basement', name: 'The Subterranean Crypt', capacity: 110, rating: 'C', unlocked: false, cost: 10500, gridCols: 7, gridRows: 7, floorGrid: {}, itemCosts: {}, desc: 'Dark, damp, and loud underground hub.' },
+                    { id: 'storefront', name: 'Downtown Storefront', capacity: 180, rating: 'C+', unlocked: false, cost: 18500, gridCols: 8, gridRows: 8, floorGrid: {}, itemCosts: {}, desc: 'Boarded retail space with heavy foot traffic.' },
+                    { id: 'garage', name: 'Former Auto Garage', capacity: 280, rating: 'B-', unlocked: false, cost: 32000, gridCols: 9, gridRows: 9, floorGrid: {}, itemCosts: {}, desc: 'Spacious garage bays with phenomenal acoustics.' },
+                    { id: 'downtown_venue', name: 'Downtown Venue', capacity: 420, rating: 'B+', unlocked: false, cost: 55000, gridCols: 10, gridRows: 10, floorGrid: {}, itemCosts: {}, desc: 'Established club right in the heart of the nightlife district.' },
+                    { id: 'music_theatre', name: 'Music Theatre', capacity: 550, rating: 'A-', unlocked: false, cost: 95000, gridCols: 11, gridRows: 11, floorGrid: {}, itemCosts: {}, desc: 'Historic tiered hall with classic stage lighting and seating.' },
+                    { id: 'festival', name: 'Open-Air Amphitheater', capacity: 850, rating: 'A', unlocked: false, cost: 155000, gridCols: 12, gridRows: 12, floorGrid: {}, itemCosts: {}, desc: 'Expansive outdoor festival grounds under the stars.' },
+                    { id: 'stadium', name: 'Metro Mega Stadium', capacity: 2500, rating: 'S', unlocked: false, cost: 375000, gridCols: 14, gridRows: 14, floorGrid: {}, itemCosts: {}, desc: 'Massive iconic concrete arena for legendary touring acts.' }
+                ],
+                bands: [
+                    { id: 'band1', name: 'Static Decay', genre: 'Punk Rock', appeal: 45, cost: 150 },
+                    { id: 'band2', name: 'Neon Echoes', genre: 'Synthwave', appeal: 70, cost: 380 },
+                    { id: 'band3', name: 'Rust & Bone', genre: 'Metal', appeal: 90, cost: 750 }
+                ],
+                events: [
+                    { title: "City Noise Complaint", desc: "Nearby neighbors filed noise petitions against your venue block.", choiceA: { text: "Bribe City Official (-$120)", action: 'bribe' }, choiceB: { text: "Pay Noise Fine (-$75)", action: 'fine' } },
+                    { title: "Gear Van Breakdown", desc: "The support headliner's van blew a transmission outside town.", choiceA: { text: "Send Tow Truck Subs (-$100)", action: 'tow' }, choiceB: { text: "Let Them Late-Arrive (-15 Hype)", action: 'late' } },
+                    { title: "Underground Music Blogger", desc: "An influential local zine writer is scouting your venue tonight.", choiceA: { text: "Comp VIP Drinks (-$60)", action: 'vip' }, choiceB: { text: "Treat Like Regular Fan (Neutral)", action: 'normal' } }
+                ]
+            },
+
+            init() {
+                const saved = localStorage.getItem('backstagePassSaveV5');
+                if (saved) {
+                    const btn = document.getElementById('load-game-btn');
+                    if (btn) btn.disabled = false;
+                }
+                this.switchScreen('screen-splash');
+                
+                const splashScreen = document.getElementById('screen-splash');
+                if (splashScreen) {
+                    splashScreen.focus();
+                }
+            },
+
+            showModalAlert(headerText, messageText, returnScreen) {
+                document.getElementById('modal-alert-header').textContent = headerText;
+                document.getElementById('modal-alert-message').textContent = messageText;
+                this.state.modalReturnScreen = returnScreen || 'screen-venue-selector';
+                this.switchScreen('screen-modal-alert');
+            },
+
+            closeModalAlert() {
+                this.switchScreen(this.state.modalReturnScreen);
+            },
+
+            flashSavedNotice(returnScreen) {
+                this.switchScreen('screen-saved-notice');
+                setTimeout(() => this.switchScreen(returnScreen), 1000);
+            },
+
+            saveGame() {
+                localStorage.setItem('backstagePassSaveV5', JSON.stringify(this.state));
+                SoundManager.playSFX('save-ding');
+                
+                const btn = document.getElementById('load-game-btn');
+                if (btn) btn.disabled = false;
+                this.flashSavedNotice('screen-main-menu');
+            },
+
+            saveGameFromMenu() { 
+                this.saveGame(); 
+            },
+
+            saveAndReturnToMain() {
+                localStorage.setItem('backstagePassSaveV5', JSON.stringify(this.state));
+                SoundManager.playSFX('save-ding');
+                const btn = document.getElementById('load-game-btn');
+                if (btn) btn.disabled = false;
+                this.flashSavedNotice('screen-main-menu');
+            },
+
+            loadGame() {
+                const saved = localStorage.getItem('backstagePassSaveV5');
+                if (saved) {
+                    try {
+                        this.state = JSON.parse(saved);
+                        this.stopSplashMusic();
+                        this.updateUIValues();
+                        this.switchScreen('screen-venue-selector');
+                    } catch(e) {
+                        this.showModalAlert("ERROR", "Save file corrupted.", 'screen-main-menu');
+                    }
+                }
+            },
+
+            enterMainFromSplash() {
+                const splashMusic = document.getElementById('splash-music');
+                if (splashMusic) {
+                    splashMusic.volume = (this.state.settings.volume / 100) * 0.5;
+                    splashMusic.play().catch(e => {
+                        console.log("Audio autoplay restricted:", e);
+                    });
+                }
+                this.switchScreen('screen-main-menu');
+            },
+
+            stopSplashMusic() {
+                const splashMusic = document.getElementById('splash-music');
+                if (splashMusic) {
+                    splashMusic.pause();
+                    splashMusic.currentTime = 0;
+                }
+            },
+
+            switchScreen(screenId) {
+                document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+                const target = document.getElementById(screenId);
+                if (target) target.classList.add('active');
+
+                // Manage splash-music exclusively for menu/splash screens:[cite: 3]
+                const splashMusic = document.getElementById('splash-music');
+                if (splashMusic) {
+                    const menuScreens = ['screen-splash', 'screen-main-menu', 'screen-settings', 'screen-intro'];
+                    if (menuScreens.includes(screenId)) {
+                        if (splashMusic.paused) {
+                            splashMusic.volume = (this.state.settings.volume / 100) * 0.5;
+                            splashMusic.play().catch(e => console.log("Audio play error:", e));
+                        }
+                    } else {
+                        splashMusic.pause();
+                        splashMusic.currentTime = 0;
+                    }
+                }
+
+                if (screenId === 'screen-venue-selector') {
+                    this.renderVenues();
+                    this.updateUIValues();
+                } else if (screenId === 'screen-identity-setup') {
+                    document.getElementById('input-company-name').value = this.state.companyName || "Underground Empire";
+                    if (this.state.currentVenue) {
+                        document.getElementById('input-venue-custom-name').value = this.state.currentVenue.name;
+                    }
+                    this.updateUIValues();
+                } else if (screenId === 'screen-floor-designer') {
+                    this.renderFloorDesigner();
+                    this.updateUIValues();
+                } else if (screenId === 'screen-band-scouting') {
+                    this.renderBands();
+                    this.updateUIValues();
+                } else if (screenId === 'screen-office') {
+                    this.updateOfficeStats();
+                } else if (screenId === 'screen-event-card') {
+                    this.setupRandomEvent();
+                } else if (screenId === 'screen-marketing') {
+                    this.updateMarketingTotal();
+                    this.updateUIValues();
+                } else if (screenId === 'screen-live-show') {
+                    this.updateUIValues();
+                } else if (screenId === 'screen-post-show') {
+                    SoundManager.playSFX('money-sound');
+                }
+            },
+
+            goBack() { 
+                this.switchScreen('screen-main-menu'); 
+            },
+
+            startNewGame() {
+                this.stopSplashMusic();
+                this.switchScreen('screen-intro');
+            },
+
+            updateUIValues() {
+                const fundsStr = '$' + this.state.funds.toLocaleString();
+                ['player-funds-venue', 'player-funds-identity', 'player-funds-designer', 'player-funds-bands', 'player-funds-marketing', 'player-funds-live', 'office-funds'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = fundsStr;
+                });
+                const calStr = `WEEK ${this.state.week}, DAY ${this.state.day}`;
+                ['calendar-tracker-venues', 'calendar-tracker-office', 'calendar-tracker-bands', 'calendar-tracker-marketing', 'calendar-tracker-live', 'calendar-tracker-post', 'calendar-tracker-event'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = calStr;
+                });
+            },
+
+            renderVenues() {
+                const container = document.getElementById('venue-list');
+                if (!container) return;
+                container.innerHTML = '';
+                this.state.venues.forEach(v => {
+                    const card = document.createElement('div');
+                    card.className = `venue-card ${v.unlocked ? 'unlocked' : ''}`;
+                    card.innerHTML = `
+                        <div>
+                            <strong style="color: #fff; font-size: 0.8rem;">${v.name}</strong>
+                            <p style="font-size: 0.7rem; color: #888; margin-top:2px;">Cap: ${v.capacity} | Grid: ${v.gridCols}x${v.gridRows} | Rating: ${v.rating}</p>
+                            <p style="font-size: 0.65rem; color: #aaa; font-style: italic; margin-top:2px;">${v.desc}</p>
+                        </div>
+                        <div>
+                            ${v.unlocked ? 
+                                `<button class="btn-primary" style="margin-top:0; padding:6px 10px;" onclick="Game.selectVenue('${v.id}')">DESIGN FLOOR</button>` :
+                                `<button class="btn-secondary" style="margin-top:0; padding:6px 10px;" onclick="Game.buyVenue('${v.id}')">BUY ($${v.cost.toLocaleString()})</button>`
+                            }
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            },
+
+            buyVenue(venueId) {
+                const v = this.state.venues.find(item => item.id === venueId);
+                if (this.state.funds >= v.cost) {
+                    this.state.funds -= v.cost;
+                    v.unlocked = true;
+                    this.state.currentVenue = v;
+                    this.updateUIValues();
+                    this.switchScreen('screen-identity-setup');
+                } else {
+                    this.showModalAlert("INSUFFICIENT FUNDS", "You do not have enough capital to acquire this venue!", 'screen-venue-selector');
+                }
+            },
+
+            selectVenue(venueId) {
+                this.state.currentVenue = this.state.venues.find(item => item.id === venueId);
+                this.switchScreen('screen-identity-setup');
+            },
+
+            saveIdentityAndProceed() {
+                const compInput = document.getElementById('input-company-name').value.trim();
+                const venueInput = document.getElementById('input-venue-custom-name').value.trim();
+                
+                if (compInput) this.state.companyName = compInput;
+                if (venueInput && this.state.currentVenue) {
+                    this.state.currentVenue.name = venueInput;
+                }
+                this.switchScreen('screen-floor-designer');
+            },
+
+            selectDesignerTool(type, cost) {
+                this.state.designerTool = { type: type, cost: cost };
+                document.querySelectorAll('.furn-tool-btn').forEach(b => b.classList.remove('active'));
+                const btn = document.getElementById('tool-' + type);
+                if (btn) btn.classList.add('active');
+            },
+
+            renderFloorDesigner() {
+                const container = document.getElementById('floor-grid-box');
+                if (!container || !this.state.currentVenue) return;
+                document.getElementById('designer-panel-title').textContent = `${this.state.currentVenue.name.toUpperCase()} FLOOR PLAN`;
+                
+                const cols = this.state.currentVenue.gridCols;
+                const rows = this.state.currentVenue.gridRows;
+                container.style.gridTemplateColumns = `repeat(${cols}, 32px)`;
+                container.style.gridTemplateRows = `repeat(${rows}, 32px)`;
+                container.innerHTML = '';
+
+                if (!this.state.currentVenue.floorGrid) {
+                    this.state.currentVenue.floorGrid = {};
+                }
+                if (!this.state.currentVenue.itemCosts) {
+                    this.state.currentVenue.itemCosts = {};
+                }
+
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        const cellKey = `${r}-${c}`;
+                        const cellItem = this.state.currentVenue.floorGrid[cellKey];
+                        const cell = document.createElement('div');
+                        cell.className = 'floor-cell';
+                        
+                        if (cellItem) {
+                            if (cellItem === 'bar') { cell.textContent = '🍺'; cell.style.background = 'rgba(139,0,0,0.3)'; }
+                            else if (cellItem === 'bathroom') { cell.textContent = '🚻'; cell.style.background = 'rgba(0,100,139,0.3)'; }
+                            else if (cellItem === 'vip') { cell.textContent = '✨'; cell.style.background = 'rgba(139,139,0,0.3)'; }
+                            else if (cellItem === 'seating') { cell.textContent = '🪑'; cell.style.background = 'rgba(50,50,80,0.6)'; }
+                            else if (cellItem === 'lighting') { cell.textContent = '💡'; cell.style.background = 'rgba(139,0,139,0.3)'; }
+                            else if (cellItem === 'pa') { cell.textContent = '🔊'; cell.style.background = 'rgba(0,139,0,0.3)'; }
+                        } else {
+                            cell.textContent = '';
+                        }
+
+                        cell.onclick = () => Game.handleCellClick(r, c);
+                        container.appendChild(cell);
+                    }
+                }
+            },
+
+            handleCellClick(r, c) {
+                const v = this.state.currentVenue;
+                if (!v) return;
+                const tool = this.state.designerTool;
+                const cols = v.gridCols;
+
+                const assetWidth = (tool.type === 'seating' || tool.type === 'vip') ? 2 : 1;
+
+                if (tool.type === 'erase') {
+                    const cellKey = `${r}-${c}`;
+                    if (v.floorGrid[cellKey]) {
+                        let startC = c;
+                        while (startC > 0 && v.floorGrid[`${r}-${startC - 1}`] === v.floorGrid[cellKey]) {
+                            startC--;
+                        }
+                        const itemType = v.floorGrid[`${r}-${startC}`];
+                        const refundKey = `${r}-${startC}`;
+                        if (v.itemCosts && v.itemCosts[refundKey]) {
+                            this.state.funds += v.itemCosts[refundKey];
+                            delete v.itemCosts[refundKey];
+                        }
+                        
+                        const widthToClear = (itemType === 'seating' || itemType === 'vip') ? 2 : 1;
+                        for (let i = 0; i < widthToClear; i++) {
+                            delete v.floorGrid[`${r}-${startC + i}`];
+                        }
+
+                        this.renderFloorDesigner();
+                        this.updateUIValues();
+                    }
+                } else {
+                    if (c + assetWidth > cols) {
+                        this.showModalAlert("INVALID PLACEMENT", "Not enough space in this row for a 2-square wide asset!", 'screen-floor-designer');
+                        return;
+                    }
+
+                    let canPlace = true;
+                    for (let i = 0; i < assetWidth; i++) {
+                        if (v.floorGrid[`${r}-${c + i}`]) {
+                            canPlace = false;
+                            break;
+                        }
+                    }
+
+                    if (canPlace) {
+                        if (this.state.funds >= tool.cost) {
+                            this.state.funds -= tool.cost;
+                            v.itemCosts[`${r}-${c}`] = tool.cost;
+                            for (let i = 0; i < assetWidth; i++) {
+                                v.floorGrid[`${r}-${c + i}`] = tool.type;
+                            }
+                            this.renderFloorDesigner();
+                            this.updateUIValues();
+                        } else {
+                            this.showModalAlert("INSUFFICIENT FUNDS", "Not enough capital to place this asset!", 'screen-floor-designer');
+                        }
+                    } else {
+                        this.showModalAlert("BLOCKED SPACE", "One or more target squares are already occupied!", 'screen-floor-designer');
+                    }
+                }
+            },
+
+            proceedToScouting() {
+                this.switchScreen('screen-band-scouting');
+            },
+
+            proceedToMarketing() {
+                this.switchScreen('screen-marketing');
+            },
+
+            setupRandomEvent() {
+                if (this.state.liveTimer) {
+                    clearInterval(this.state.liveTimer);
+                    this.state.liveTimer = null;
+                }
+                const randEvt = this.state.events[Math.floor(Math.random() * this.state.events.length)];
+                this.state.activeEvent = randEvt;
+                document.getElementById('event-card-title').textContent = randEvt.title;
+                document.getElementById('event-card-desc').textContent = randEvt.desc;
+                
+                const container = document.getElementById('event-choices-container');
+                container.innerHTML = `
+                    <button class="btn-primary" onclick="Game.resolveEvent('A')">${randEvt.choiceA.text}</button>
+                    <button class="btn-secondary" onclick="Game.resolveEvent('B')">${randEvt.choiceB.text}</button>
+                `;
+            },
+
+            resolveEvent(choiceKey) {
+                const evt = this.state.activeEvent;
+                if (evt.title.includes("Noise")) {
+                    if (choiceKey === 'A') { this.state.funds -= 120; } else { this.state.funds -= 75; }
+                } else if (evt.title.includes("Van")) {
+                    if (choiceKey === 'A') { this.state.funds -= 100; }
+                } else if (evt.title.includes("Blogger")) {
+                    if (choiceKey === 'A') { this.state.funds -= 60; }
+                }
+                this.updateUIValues();
+                this.switchScreen('screen-band-scouting');
+            },
+
+            renderBands() {
+                const container = document.getElementById('band-list');
+                if (!container) return;
+                container.innerHTML = '';
+                this.state.bands.forEach(b => {
+                    const card = document.createElement('div');
+                    card.className = `band-card ${this.state.selectedBand === b ? 'booked' : ''}`;
+                    card.innerHTML = `
+                        <div>
+                            <strong style="color: #fff; font-size: 0.8rem;">${b.name}</strong>
+                            <p style="font-size: 0.7rem; color: #888; margin-top:2px;">Genre: ${b.genre} | Appeal: ${b.appeal}</p>
+                        </div>
+                        <div>
+                            <button class="${this.state.selectedBand === b ? 'btn-secondary' : 'btn-primary'}" style="margin-top:0; padding:6px 10px;" onclick="Game.toggleBookBand('${b.id}')">
+                                ${this.state.selectedBand === b ? 'BOOKED' : 'BOOK ($' + b.cost + ')'}
+                            </button>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            },
+
+            toggleBookBand(bandId) {
+                const b = this.state.bands.find(item => item.id === bandId);
+                if (this.state.selectedBand === b) {
+                    this.state.selectedBand = null;
+                    document.getElementById('proceed-btn').disabled = true;
+                } else {
+                    if (this.state.funds >= b.cost) {
+                        this.state.selectedBand = b;
+                        document.getElementById('proceed-btn').disabled = false;
+                    } else {
+                        this.showModalAlert("INSUFFICIENT FUNDS", "Not enough funds to hire this band!", 'screen-band-scouting');
+                    }
+                }
+                this.renderBands();
+            },
+
+            selectMarketing(id, cost) {
+                const buzzMap = { flyers: 35, zines: 70, social: 120, street: 200 };
+                this.state.marketingChoice = { id: id, cost: cost, buzz: buzzMap[id] };
+                
+                document.querySelectorAll('.market-card').forEach(c => c.classList.remove('selected'));
+                document.getElementById('market-' + id).classList.add('selected');
+                this.updateMarketingTotal();
+            },
+
+            updateMarketingTotal() {
+                const securityCost = document.getElementById('check-security').checked ? 100 : 0;
+                const merchCost = document.getElementById('check-merch').checked ? 40 : 0;
+                const bandCost = this.state.selectedBand ? this.state.selectedBand.cost : 0;
+                const total = this.state.marketingChoice.cost + securityCost + merchCost + bandCost;
+                document.getElementById('marketing-total-cost').textContent = '$' + total;
+            },
+
+            launchShow() {
+                const securityCost = document.getElementById('check-security').checked ? 100 : 0;
+                const merchCost = document.getElementById('check-merch').checked ? 40 : 0;
+                const bandCost = this.state.selectedBand ? this.state.selectedBand.cost : 0;
+                const totalCost = this.state.marketingChoice.cost + securityCost + merchCost + bandCost;
+
+                if (this.state.funds < totalCost) {
+                    this.showModalAlert("INSUFFICIENT FUNDS", "Not enough capital to cover upfront show costs!", 'screen-marketing');
+                    return;
+                }
+
+                this.state.funds -= totalCost;
+                this.updateUIValues();
+                this.switchScreen('screen-live-show');
+                document.getElementById('live-venue-name').textContent = this.state.currentVenue.name;
+
+                const maxCap = this.state.currentVenue.capacity;
+                let targetHeadcount = Math.min(maxCap, Math.floor((this.state.marketingChoice.buzz + (this.state.selectedBand.appeal * 2))));
+                
+                let barCount = 0, lightingCount = 0, paCount = 0;
+                Object.values(this.state.currentVenue.floorGrid || {}).forEach(item => {
+                    if (item === 'bar') barCount++;
+                    if (item === 'lighting') lightingCount++;
+                    if (item === 'pa') paCount++;
+                });
+
+                if (paCount > 0) targetHeadcount = Math.min(maxCap, targetHeadcount + (paCount * 10));
+
+                let progress = 0;
+                const bar = document.getElementById('live-progress-bar');
+                const statusEl = document.getElementById('live-status');
+                const vibeEl = document.getElementById('live-vibe');
+                const attEl = document.getElementById('live-attendance');
+                const barEl = document.getElementById('live-bar');
+                const merchEl = document.getElementById('live-merch');
+                const logEl = document.getElementById('live-stage-log');
+                const finishBtn = document.getElementById('finish-show-btn');
+
+                finishBtn.disabled = true;
+                finishBtn.textContent = "SHOW IN PROGRESS...";
+                this.state.crisisActive = false;
+                document.getElementById('interactive-crisis-box').style.display = 'none';
+                document.getElementById('normal-stage-log').style.display = 'block';
+
+                if (this.state.liveTimer) clearInterval(this.state.liveTimer);
+
+                const vibes = [
+                    "Skeptical onlookers waiting by the door...",
+                    "Audience filing in, grabbing venue drinks.",
+                    "First chords strike, room energy climbing!",
+                    "Full roar in the room, mosh pit erupting!",
+                    "Encore cheers echoing into the night street!"
+                ];
+
+                const logs = [
+                    "Soundcheck completed successfully with zero feedback issues.",
+                    "Merch table lines stretching deep into the lobby corridor.",
+                    "Guitar amp tubes glowing warm; crowd reaction is electric.",
+                    "Stage lights reflecting off packed floor crowds.",
+                    "Final gear packing underway as house applause rolls on."
+                ];
+
+                statusEl.textContent = "DOORS OPENING";
+
+                this.state.liveTimer = setInterval(() => {
+                    progress += 2;
+                    bar.style.width = progress + '%';
+
+                    const ratio = progress / 100;
+                    const liveHeadcount = Math.floor(targetHeadcount * ratio);
+                    const barMultiplier = 4 + (barCount * 2);
+                    const liveBarTab = Math.floor(liveHeadcount * barMultiplier * ratio);
+                    const liveMerchCut = Math.floor((this.state.selectedBand.appeal + (lightingCount * 5)) * 2.5 * ratio);
+
+                    attEl.textContent = `${liveHeadcount} / ${maxCap} (${Math.round((liveHeadcount/maxCap)*100)}% Cap)`;
+                    barEl.textContent = `$${liveBarTab}`;
+                    merchEl.textContent = `$${liveMerchCut}`;
+
+                    if (progress === 10) {
+                        statusEl.textContent = "SOUNDCHECK & ENTRY";
+                    } else if (progress === 30) {
+                        statusEl.textContent = "SET 1 LIVE";
+                        vibeEl.textContent = vibes[1];
+                        logEl.textContent = logs[1];
+                    } else if (progress === 60) {
+                        statusEl.textContent = "HEADLINER ON STAGE";
+                        vibeEl.textContent = vibes[2];
+                        logEl.textContent = logs[2];
+                    } else if (progress === 85) {
+                        statusEl.textContent = "ENCORE & WAVING";
+                        vibeEl.textContent = vibes[3];
+                        logEl.textContent = logs[3];
+                    }
+
+                    if (progress === 35 && !this.state.crisisActive) {
+                        this.state.crisisActive = true;
+                        document.getElementById('normal-stage-log').style.display = 'none';
+                        document.getElementById('interactive-crisis-box').style.display = 'block';
+                    }
+
+                    if (progress >= 100) {
+                        clearInterval(this.state.liveTimer);
+                        this.state.liveTimer = null;
+                        statusEl.textContent = "SHOW CONCLUDED";
+                        vibeEl.textContent = vibes[4];
+                        logEl.textContent = logs[4];
+
+                        const ticketRev = targetHeadcount * 12;
+                        const barTab = targetHeadcount * barMultiplier;
+                        const merchCut = Math.floor((this.state.selectedBand.appeal + (lightingCount * 5)) * 2.5);
+                        const grossPayout = ticketRev + barTab + merchCut;
+
+                        this.state.funds += grossPayout;
+                        this.state.lifetimeRevenue += grossPayout;
+                        this.state.showsHosted++;
+                        this.updateUIValues();
+
+                        document.getElementById('summary-attendance').textContent = `${targetHeadcount} / ${maxCap}`;
+                        document.getElementById('summary-tickets').textContent = `$${ticketRev.toLocaleString()}`;
+                        document.getElementById('summary-bar').textContent = `$${barTab.toLocaleString()}`;
+                        document.getElementById('summary-merch').textContent = `$${merchCut.toLocaleString()}`;
+                        document.getElementById('summary-gross').textContent = `$${grossPayout.toLocaleString()}`;
+                        document.getElementById('summary-bank').textContent = `$${this.state.funds.toLocaleString()}`;
+
+                        finishBtn.disabled = false;
+                        finishBtn.textContent = "VIEW POST-SHOW REPORT";
+                        finishBtn.onclick = () => Game.switchScreen('screen-post-show');
+                    }
+                }, 140);
+            },
+
+            resolveCrisis(actionType) {
+                if (actionType === 'intervene') {
+                    this.state.funds -= 50;
+                    this.updateUIValues();
+                }
+                document.getElementById('interactive-crisis-box').style.display = 'none';
+                document.getElementById('normal-stage-log').style.display = 'block';
+                document.getElementById('live-stage-log').textContent = "Security stepped in cleanly. Set resumes momentum!";
+            },
+
+            finishShow() {
+                this.switchScreen('screen-post-show');
+            },
+
+            proceedToNextGigCycle() {
+                this.state.day++;
+                if (this.state.day > 7) {
+                    this.state.day = 1;
+                    this.state.week++;
+                }
+                this.state.selectedBand = null;
+                this.updateUIValues();
+                this.switchScreen('screen-event-card');
+            },
+
+            updateOfficeStats() {
+                document.getElementById('office-company-name').textContent = this.state.companyName || "Underground Empire";
+                document.getElementById('office-funds').textContent = '$' + this.state.funds.toLocaleString();
+                document.getElementById('office-lifetime-rev').textContent = '$' + this.state.lifetimeRevenue.toLocaleString();
+                document.getElementById('office-shows-hosted').textContent = this.state.showsHosted;
+                const owned = this.state.venues.filter(v => v.unlocked).length;
+                document.getElementById('office-venues-owned').textContent = `${owned} / ${this.state.venues.length}`;
+            },
+
+            updateSettingsFromUI() {
+                const vol = document.getElementById('setting-vol-slider').value;
+                document.getElementById('setting-vol-val').textContent = vol;
+                this.state.settings.volume = parseInt(vol);
+                SoundManager.setMasterVolume(this.state.settings.volume);
+                const splashMusic = document.getElementById('splash-music');
+                if (splashMusic) splashMusic.volume = (this.state.settings.volume / 100) * 0.5;
+            },
+
+            toggleSFX() {
+                this.state.settings.sfxEnabled = !this.state.settings.sfxEnabled;
+                document.getElementById('setting-sfx-btn').textContent = `SFX: ${this.state.settings.sfxEnabled ? 'ENABLED' : 'DISABLED'}`;
+            },
+
+            handleKeyPress(event) {
+                if (event.key === 'Enter') {
+                    const splashScreen = document.getElementById('screen-splash');
+                    if (splashScreen && splashScreen.classList.contains('active')) {
+                        this.enterMainFromSplash();
+                    }
+                }
+            }
+        };
+    </script>
+</body>
+</html>
