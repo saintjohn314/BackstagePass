@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 900" width="600" height="900" preserveAspectRatio="xMidYMid slice"><defs>
+  <filter id="blur4"><feGaussianBlur stdDeviation="4"/></filter>
+  <filter id="blur12"><feGaussianBlur stdDeviation="12"/></filter>
+  <filter id="blur30"><feGaussianBlur stdDeviation="30"/></filter>
+  <filter id="neon" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  <radialGradient id="glowW"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  <radialGradient id="glowA"><stop offset="0" stop-color="#ffb238" stop-opacity=".9"/><stop offset="1" stop-color="#ffb238" stop-opacity="0"/></radialGradient>
+  <radialGradient id="glowR"><stop offset="0" stop-color="#ff3b30" stop-opacity=".9"/><stop offset="1" stop-color="#ff3b30" stop-opacity="0"/></radialGradient>
+  <radialGradient id="glowP"><stop offset="0" stop-color="#ff3d9a" stop-opacity=".9"/><stop offset="1" stop-color="#ff3d9a" stop-opacity="0"/></radialGradient>
+  <radialGradient id="glowC"><stop offset="0" stop-color="#4fd1ff" stop-opacity=".9"/><stop offset="1" stop-color="#4fd1ff" stop-opacity="0"/></radialGradient>
+  <linearGradient id="night" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#05050f"/><stop offset=".6" stop-color="#1a0d2a"/><stop offset="1" stop-color="#3a1424"/></linearGradient>
+  <linearGradient id="beamR" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff3b30" stop-opacity=".75"/><stop offset="1" stop-color="#ff3b30" stop-opacity="0"/></linearGradient>
+  <linearGradient id="beamA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb238" stop-opacity=".7"/><stop offset="1" stop-color="#ffb238" stop-opacity="0"/></linearGradient>
+  <linearGradient id="beamC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fd1ff" stop-opacity=".65"/><stop offset="1" stop-color="#4fd1ff" stop-opacity="0"/></linearGradient>
+  <linearGradient id="beamP" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff3d9a" stop-opacity=".7"/><stop offset="1" stop-color="#ff3d9a" stop-opacity="0"/></linearGradient>
+  <linearGradient id="fadeDown" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".85"/></linearGradient>
+  <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5a3a22"/><stop offset="1" stop-color="#2a1a10"/></linearGradient>
+  <pattern id="brick" width="60" height="24" patternUnits="userSpaceOnUse"><rect width="60" height="24" fill="#1c1210"/><rect x="1" y="1" width="58" height="10" fill="#3a2420"/><rect x="-29" y="13" width="58" height="10" fill="#33201c"/><rect x="31" y="13" width="58" height="10" fill="#3d2622"/></pattern>
+</defs><rect width="600" height="900" fill="url(#brick)"/><rect width="600" height="900" fill="#000" opacity=".55"/>
+        <circle cx="300" cy="420" r="330" fill="url(#glowP)" opacity="0.35"/>
+        <g fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#neon)">
+            <path d="M300 160 L300 330 M262 160 h76" stroke="#4fd1ff" stroke-width="8"/>
+            <path d="M300 330 Q230 330 230 420 Q230 470 260 490 Q210 520 220 590 Q235 660 300 660 Q365 660 380 590 Q390 520 340 490 Q370 470 370 420 Q370 330 300 330z" stroke="#ff3d9a" stroke-width="9"/>
+            <circle cx="300" cy="520" r="34" stroke="#ff3d9a" stroke-width="7"/>
+            <path d="M120 760 L160 720 L200 760 L240 720 L280 760" stroke="#ffb238" stroke-width="7"/>
+            <path d="M330 720 v40 M330 720 h40 v20 h-40 M400 720 v40 h40 M470 720 v40" stroke="#3ddc84" stroke-width="7"/>
+        </g>
+        <path d="M80 120 l20 -40 l20 40 l-44 -26 h48z" fill="#ffb238" filter="url(#neon)" opacity=".9"/>
+        <path d="M480 220 l14 -28 l14 28 l-30 -18 h32z" fill="#4fd1ff" filter="url(#neon)" opacity=".9"/></svg>
