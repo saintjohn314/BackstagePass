@@ -793,7 +793,7 @@ const Game = {
         const v = this.designerDef();
         const host = document.getElementById('plan-host');
         const rect = host.getBoundingClientRect();
-        const cell = Math.max(18, Math.min(46, Math.floor(Math.min((rect.width || 600) - 50, ((rect.height || 400) - 50) * v.cols / v.rows) / v.cols)));
+        const cell = Math.max(18, Math.min(64, Math.floor(Math.min((rect.width || 600) - 50, ((rect.height || 400) - 50) * v.cols / v.rows) / v.cols)));
         const doors = Sim.doorCellSet(v);
         const dead = new Set((d.report.trapped || []).map(([r, c]) => r * 1000 + c));
         const cov = d.overlay ? d.report.coverage : null;
