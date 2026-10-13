@@ -707,6 +707,13 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
     .game-title { font-size: 3.6rem; }
     .toast-root { left: 10px; right: 10px; align-items: stretch; }
 }
+@media (max-width: 640px) {
+    .marquee { top: 52px; font-size: 1rem; max-width: calc(100% - 24px); }
+    .live-view { aspect-ratio: 4 / 3; }
+    .live-status { font-size: 0.56rem; }
+    .speed-ctl { right: 8px; }
+    .speed-ctl .seg button { padding: 5px 7px; }
+}
 @media (max-width: 480px) {
     .hud-stat .hud-label { font-size: 0.52rem; }
     .hud-value { font-size: 0.8rem; }
