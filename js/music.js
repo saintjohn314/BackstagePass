@@ -351,7 +351,7 @@ const Music = (() => {
     }
 
     function setVolume(v) {
-        volume = Math.max(0, Math.min(1, v)) * 0.8;
+        volume = Math.max(0, Math.min(1, v)) * 0.6;
         if (master) master.gain.setTargetAtTime(Math.max(0.0001, volume), ctx.currentTime, 0.1);
     }
 
