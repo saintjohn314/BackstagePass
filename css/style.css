@@ -679,6 +679,8 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
     .screen-full { height: auto; }
     #screen-floor-designer { overflow-y: auto; }
     #screen-floor-designer .viewport { min-height: 420px; }
+    #screen-floor-designer .designer { flex: none; grid-template-rows: auto auto; }
+    #screen-floor-designer .designer-palette { max-height: 560px; }
 }
 @media (max-width: 900px) {
     body { overflow: auto; }
@@ -724,6 +726,72 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
 }
 .btn-chip.quick { border-color: var(--amber); color: var(--amber); }
 .btn-chip.quick:hover:not(:disabled) { border-color: var(--amber); background: rgba(255,178,56,0.15); color: #fff; }
+
+/* 3D diorama view (used when the device can't run WebGL) */
+.plan-host.iso {
+    perspective: 2400px; overflow: hidden;
+    background: radial-gradient(ellipse 60% 45% at 50% 22%, rgba(255,110,60,0.18), transparent 70%),
+                radial-gradient(ellipse 120% 90% at 50% 100%, #1c1622, #08080b 70%);
+}
+.plan-host.iso .plan {
+    border: none; background: #121216;
+    box-shadow: 0 0 0 3px #26262c, 0 30px 60px rgba(0,0,0,0.6);
+    transform-style: preserve-3d;
+    transform: translateY(var(--lift)) rotateX(var(--tilt)) rotateZ(var(--rot));
+    transition: transform 0.7s cubic-bezier(.2,.8,.2,1);
+}
+.plan-host.iso .plan::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none; transform: translateZ(0.5px);
+    background: radial-gradient(ellipse 70% 55% at 50% 0%, rgba(255,150,70,0.22), transparent 70%);
+}
+.plan-host.iso .plan-wall .curtain {
+    position: absolute; top: 0; height: 94%;
+    background: repeating-linear-gradient(90deg, #6e0d12 0 7px, #3a0608 7px 14px);
+    box-shadow: inset 0 -16px 18px rgba(0,0,0,0.55), 0 0 22px rgba(255,59,48,0.25);
+}
+.plan-host.iso .plan-cell { border-color: rgba(255,255,255,0.07); box-shadow: inset 0 0 12px rgba(0,0,0,0.25); }
+.plan-host.iso .plan-cell.stage { transform: translateZ(var(--sh)); background: repeating-linear-gradient(90deg, #8a6038 0 7px, #76512f 7px 14px); border-color: rgba(0,0,0,0.3); box-shadow: inset 0 0 18px rgba(255,170,90,0.25); }
+.plan-host.iso .plan-cell.ghost-ok { box-shadow: inset 0 0 0 2px #3ddc84, 0 0 18px rgba(61,220,132,0.6); }
+.plan-host.iso .plan-cell.ghost-bad { box-shadow: inset 0 0 0 2px #ff3b30, 0 0 18px rgba(255,59,48,0.6); }
+.plan-host.iso .plan-item {
+    overflow: visible; transform-style: preserve-3d; transform: translateZ(var(--z));
+    border-radius: 1px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.28), inset 0 10px 14px rgba(255,255,255,0.12);
+}
+.plan-host.iso .plan-item.drop { animation: isoDrop 0.45s cubic-bezier(.3,1.5,.5,1) both; }
+@keyframes isoDrop { from { transform: translateZ(calc(var(--z) + 70px)); } }
+.plan-host.iso .plan-item .ic { filter: drop-shadow(0 1px 1px rgba(0,0,0,0.5)); }
+.plan-host.iso .f { position: absolute; pointer-events: none; background: linear-gradient(rgba(0,0,0,var(--dk)), rgba(0,0,0,var(--dk))), var(--c); }
+.plan-host.iso .f.s { --dk: 0.26; left: 0; top: 100%; width: 100%; height: var(--h); transform-origin: top; transform: rotateX(-90deg); }
+.plan-host.iso .f.n { --dk: 0.14; left: 0; bottom: 100%; width: 100%; height: var(--h); transform-origin: bottom; transform: rotateX(90deg); }
+.plan-host.iso .f.e { --dk: 0.42; top: 0; left: 100%; width: var(--h); height: 100%; transform-origin: left; transform: rotateY(90deg); }
+.plan-host.iso .f.w { --dk: 0.34; top: 0; right: 100%; width: var(--h); height: 100%; transform-origin: right; transform: rotateY(-90deg); }
+.plan-stage-label .f { display: none; }
+.plan-host.iso .plan-stage-label { transform-style: preserve-3d; transform: translateZ(calc(var(--sh) + 1px)); align-items: center; padding: 0; font-size: 1.1rem; letter-spacing: 8px; color: rgba(255,236,210,0.55); text-shadow: 0 0 10px rgba(255,140,60,0.7); }
+.plan-host.iso .plan-stage-label .f { display: block; --c: #5a3c22; }
+.plan-host.iso .plan-stage-label .f.s { border-top: 2px solid #ff3b30; }
+.plan-host.iso .plan-wall {
+    position: absolute; pointer-events: none;
+    background-color: #3e2620;
+    background-size: 100% 100%, 100% 9px, 22px 18px;
+}
+.plan-host.iso .plan-wall.n { left: 0; top: 0; width: 100%; height: var(--wh); transform-origin: top; transform: rotateX(90deg); background-image: linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,0.45)), linear-gradient(rgba(0,0,0,0.35) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.3) 1px, transparent 1px); }
+.plan-host.iso .plan-wall.s { left: 0; bottom: 0; width: 100%; height: var(--wh); transform-origin: bottom; transform: rotateX(-90deg); background-image: linear-gradient(to top, rgba(0,0,0,0), rgba(0,0,0,0.45)), linear-gradient(rgba(0,0,0,0.35) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.3) 1px, transparent 1px); }
+.plan-host.iso .plan-wall.w { left: 0; top: 0; width: var(--wh); height: 100%; transform-origin: left; transform: rotateY(-90deg); background-image: linear-gradient(to right, rgba(0,0,0,0.15), rgba(0,0,0,0.6)), linear-gradient(90deg, rgba(0,0,0,0.35) 1px, transparent 1px), linear-gradient(rgba(0,0,0,0.3) 1px, transparent 1px); background-size: 100% 100%, 9px 100%, 18px 22px; }
+.plan-host.iso .plan-wall.e { right: 0; top: 0; width: var(--wh); height: 100%; transform-origin: right; transform: rotateY(90deg); background-image: linear-gradient(to left, rgba(0,0,0,0.15), rgba(0,0,0,0.6)), linear-gradient(90deg, rgba(0,0,0,0.35) 1px, transparent 1px), linear-gradient(rgba(0,0,0,0.3) 1px, transparent 1px); background-size: 100% 100%, 9px 100%, 18px 22px; }
+.plan-host.iso .plan-wall .wd { position: absolute; background: #0b0b0d; box-shadow: inset 0 0 0 2px var(--dc), 0 0 14px var(--dc); }
+.plan-host.iso .plan-wall .wd.main { --dc: var(--amber); }
+.plan-host.iso .plan-wall .wd.fire { --dc: var(--green); }
+.plan-host.iso .plan-wall.n .wd { top: 0; width: var(--len); height: 72%; }
+.plan-host.iso .plan-wall.s .wd { bottom: 0; width: var(--len); height: 72%; }
+.plan-host.iso .plan-wall.w .wd { left: 0; height: var(--len); width: 72%; }
+.plan-host.iso .plan-wall.e .wd { right: 0; height: var(--len); width: 72%; }
+.plan-host.iso .plan-door { box-shadow: 0 0 12px currentColor; }
+.plan-host.iso .plan-item.ghost { --c: rgba(61,220,132,0.32); background: rgba(61,220,132,0.32); box-shadow: inset 0 0 0 2px #3ddc84, 0 0 24px rgba(61,220,132,0.5); color: #d9ffe9; }
+.plan-host.iso .plan-item.ghost.bad { --c: rgba(255,59,48,0.32); background: rgba(255,59,48,0.32); box-shadow: inset 0 0 0 2px #ff3b30, 0 0 24px rgba(255,59,48,0.5); color: #ffd9d6; }
+.plan-host.iso .plan-item.ghost .f { --dk: 0.1; }
+.plan-host.iso .plan[data-cam="top"] .plan-item { transform: none; animation: none; }
+.plan-host.iso .plan[data-cam="top"] .f { display: none; }
+.plan-host.iso .plan[data-cam="top"] .plan-cell.stage { transform: none; }
 
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
