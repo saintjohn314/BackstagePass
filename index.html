@@ -69,6 +69,7 @@
             <symbol id="i-play" viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></symbol>
             <symbol id="i-pause" viewBox="0 0 24 24"><path d="M7 4h3v16H7zM14 4h3v16h-3z"/></symbol>
             <symbol id="i-ff" viewBox="0 0 24 24"><path d="M3 5l9 7-9 7zM12 5l9 7-9 7z"/></symbol>
+            <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M7 3h10v6a5 5 0 0 1-10 0zM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4M12 14v4M8 21h8M9 18h6"/></symbol>
             <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7" cy="15" r="4"/><path d="M10 12l10-10M16 6l3 3M14 8l2 2"/></symbol>
         </defs>
     </svg>
@@ -172,6 +173,7 @@
                             <li><b>Set up the night.</b> Pick the night (weekends draw more), price tickets near "fair" (gouging empties rooms), choose promo and security, and pay the headliner a guarantee or a share of the door.</li>
                             <li><b>Run the show.</b> Make calls when things go wrong. Bar sales are where venues really make money — if your bar is too small, lines form and the mood sours.</li>
                             <li><b>Read the settlement.</b> Great, packed nights grow your reputation; it unlocks bigger acts and bigger rooms. Run out of money on rent day and the landlord changes the locks.</li>
+                            <li><b>Chase awards.</b> Thirty to win, from your first sold-out night to selling out the stadium. They fill the gold-record shelf in your office, and the awards card always shows your next goal.</li>
                         </ol>
                         <p class="dim">Goal: sell out the Metro Mega Stadium and become a Living Legend.</p>
                     </div>
@@ -299,6 +301,8 @@
                     <button class="hotspot" style="left:44%;top:60%;width:18%;height:18%" onclick="Game.switchScreen('screen-books')"><span>The books</span></button>
                     <button class="hotspot" style="left:38%;top:8%;width:28%;height:34%" onclick="Game.switchScreen('screen-books')"><span>Show history</span></button>
                     <button class="hotspot" style="left:82%;top:24%;width:15%;height:44%" onclick="Game.manualSave()"><span>Save game</span></button>
+                    <div class="office-shelf" id="office-shelf" aria-hidden="true"><div class="shelf-records"></div></div>
+                    <button class="hotspot" style="left:77%;top:3%;width:21%;height:17%" onclick="Game.switchScreen('screen-awards')"><span>Awards</span></button>
                 </div>
                 <div class="office-side">
                     <div class="company-card">
@@ -320,6 +324,7 @@
                         </div>
                     </div>
                     <div class="venue-mini" id="office-venue-card"></div>
+                    <button class="awards-card" id="office-awards" onclick="Game.switchScreen('screen-awards')" title="See all awards"></button>
                     <div class="office-alerts" id="office-alerts"></div>
                     <div class="office-actions">
                         <button class="btn btn-primary btn-lg" id="office-book-btn" onclick="Game.startBooking()"><svg class="ic"><use href="#i-phone"/></svg>BOOK NEXT SHOW</button>
@@ -344,6 +349,16 @@
                 <span class="header-note">Every dollar, every night.</span>
             </div>
             <div class="books scroll" id="books-body"></div>
+        </section>
+
+        <!-- Awards: goals & achievements -->
+        <section id="screen-awards" class="screen screen-wide">
+            <div class="panel-header">
+                <button class="btn-back" onclick="Game.switchScreen('screen-office')"><svg class="ic"><use href="#i-back"/></svg>OFFICE</button>
+                <h2>AWARDS</h2>
+                <span class="header-note" id="awards-note">Gold records for the office wall.</span>
+            </div>
+            <div class="awards scroll" id="awards-body"></div>
         </section>
 
         <!-- Band scouting: three-band bill -->
@@ -505,5 +520,6 @@
     <script src="js/scene3d.js"></script>
     <script src="js/game.js"></script>
     <script src="js/quickbuild.js"></script>
+    <script src="js/achievements.js"></script>
 </body>
 </html>
