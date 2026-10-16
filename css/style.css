@@ -734,6 +734,83 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
 .btn-chip.quick { border-color: var(--amber); color: var(--amber); }
 .btn-chip.quick:hover:not(:disabled) { border-color: var(--amber); background: rgba(255,178,56,0.15); color: #fff; }
 
+/* ---------- Awards ---------- */
+:root { --gold: #ffcf5a; --gold-deep: #b07a12; }
+.awards-meter { height: 6px; background: #23232c; border-radius: 3px; overflow: hidden; }
+.awards-meter > div { height: 100%; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); box-shadow: 0 0 10px rgba(255,207,90,0.5); transition: width 0.6s; }
+.awards-meter.big { height: 10px; border-radius: 5px; }
+
+/* Office side card */
+.awards-card {
+    display: flex; flex-direction: column; gap: 8px; width: 100%; text-align: left; color: var(--text); cursor: pointer;
+    background: linear-gradient(160deg, #221d12, #15130f); border: 1px solid #4a3c1c; border-radius: 8px; padding: 12px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.awards-card:hover, .awards-card:focus-visible { border-color: var(--gold); box-shadow: 0 0 24px rgba(255,207,90,0.18); }
+.awards-card-head { display: flex; justify-content: space-between; align-items: baseline; }
+.awards-card-head .eyebrow { color: var(--gold); display: inline-flex; gap: 6px; align-items: center; }
+.awards-card-head b { font-family: var(--display); font-weight: 400; font-size: 1.3rem; letter-spacing: 1px; line-height: 1; }
+.awards-next { display: flex; flex-direction: column; gap: 1px; font-size: 0.72rem; }
+.awards-next span { font-size: 0.56rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--dim); }
+.awards-next b { font-size: 0.8rem; }
+.awards-next small { color: var(--muted); font-size: 0.66rem; }
+
+/* Gold records on the office wall shelf */
+.office-shelf { position: absolute; left: 78%; top: 5%; width: 19%; height: 13%; pointer-events: none; display: flex; align-items: flex-end; }
+.office-shelf::after { content: ''; position: absolute; left: -4%; right: -4%; bottom: -5px; height: 7px; border-radius: 2px; background: linear-gradient(#6b4527, #3a2414); box-shadow: 0 6px 10px rgba(0,0,0,0.55); }
+.shelf-records { display: flex; gap: 6%; align-items: flex-end; width: 100%; height: 100%; }
+.shelf-records i {
+    flex: 1; aspect-ratio: 1; max-height: 100%; border-radius: 50%;
+    background: radial-gradient(circle, #111 0 18%, rgba(255,255,255,0.05) 19% 100%); border: 1px dashed rgba(255,255,255,0.14);
+}
+.shelf-records i.won {
+    border: none; animation: recordIn 0.5s ease both;
+    background: radial-gradient(circle, #2a1608 0 14%, #fff2c2 15% 18%, var(--gold) 19% 34%, var(--gold-deep) 35% 38%, var(--gold) 39% 62%, var(--gold-deep) 63% 66%, var(--gold) 67% 100%);
+    box-shadow: 0 0 14px rgba(255,207,90,0.45), inset -2px -3px 4px rgba(0,0,0,0.35);
+}
+@keyframes recordIn { from { transform: translateY(-30%) scale(0.6); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Awards screen */
+.awards { display: flex; flex-direction: column; gap: 12px; padding-right: 4px; }
+.awards-summary { display: flex; flex-direction: column; gap: 8px; background: linear-gradient(160deg, #221d12, #15130f); border: 1px solid #4a3c1c; border-radius: 8px; padding: 14px; }
+.awards-summary > div:first-child { display: flex; justify-content: space-between; align-items: baseline; }
+.awards-summary span { font-size: 0.62rem; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); }
+.awards-summary b { font-family: var(--display); font-weight: 400; font-size: 2rem; letter-spacing: 1px; line-height: 1; }
+.awards-cat { font-size: 0.62rem; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); font-weight: 700; margin-top: 6px; }
+.award-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.award { display: flex; gap: 12px; align-items: flex-start; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 12px; }
+.award-icon { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; background: #1f1f28; color: var(--dim); border: 1px solid var(--line-2); font-size: 1.05rem; }
+.award-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.award-body b { font-size: 0.82rem; color: var(--muted); }
+.award-body p { font-size: 0.7rem; color: var(--dim); line-height: 1.4; }
+.award-when { font-size: 0.6rem; letter-spacing: 1px; text-transform: uppercase; color: var(--dim); display: inline-flex; gap: 4px; align-items: center; }
+.award-prog { height: 4px; background: #23232c; border-radius: 2px; overflow: hidden; margin-top: 4px; }
+.award-prog > div { height: 100%; background: var(--line-2); }
+.award.won { border-color: #5a4720; background: linear-gradient(160deg, #241e10, #15140f); }
+.award.won .award-icon { color: #2a1608; border: none; background: radial-gradient(circle at 35% 30%, #fff2c2, var(--gold) 45%, var(--gold-deep)); box-shadow: 0 0 16px rgba(255,207,90,0.35); }
+.award.won .award-body b { color: var(--text); }
+.award.won .award-body p { color: var(--muted); }
+.award.won .award-when { color: var(--gold); }
+.award.secret { border-style: dashed; }
+
+/* Unlock toast & post-show list */
+.toast.award { border-left-color: var(--gold); background: linear-gradient(90deg, #241e10, #15151c 70%); }
+.award-toast { display: flex; gap: 10px; align-items: center; }
+.award-toast > .ic { width: 1.6rem; height: 1.6rem; color: var(--gold); }
+.award-toast > span { display: flex; flex-direction: column; gap: 1px; }
+.award-toast small { font-size: 0.56rem; letter-spacing: 2px; color: var(--gold); }
+.award-toast b { font-size: 0.86rem; }
+.post-awards { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--line); }
+.post-awards h4 { color: var(--gold) !important; display: inline-flex; gap: 6px; align-items: center; }
+.post-awards .vb-row { flex-direction: column; align-items: flex-start; gap: 0; }
+.post-awards small { color: var(--muted); font-size: 0.66rem; }
+@media (max-width: 900px) {
+    .awards { overflow: visible; }
+}
+@media (max-width: 480px) {
+    .award-grid { grid-template-columns: 1fr; }
+}
+
 /* 3D diorama view (used when the device can't run WebGL) */
 .plan-host.iso {
     perspective: 2400px; overflow: hidden;
