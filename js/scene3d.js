@@ -114,6 +114,9 @@ const Scene3D = (() => {
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, opts.quality === 'low' ? 1 : 2));
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1.15;
+        // Soft shadows make the room read as solid 3D (off on the FAST setting)
+        renderer.shadowMap.enabled = opts.quality !== 'low';
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         const canvas = renderer.domElement;
 
         const scene = new THREE.Scene();
@@ -132,6 +135,13 @@ const Scene3D = (() => {
         scene.add(amb);
         const key = new THREE.SpotLight(0xfff0dd, 60, 0, Math.PI / 5, 0.6, 1.2);
         scene.add(key); scene.add(key.target);
+        // Work light from above the entrance: lights the build and casts the shadows
+        const sun = new THREE.DirectionalLight(0xfff0dc, 0.9);
+        sun.castShadow = true;
+        sun.shadow.mapSize.set(2048, 2048);
+        sun.shadow.bias = -0.0004;
+        sun.shadow.normalBias = 0.03;
+        scene.add(sun); scene.add(sun.target);
         const stageSpots = [0, 1, 2].map(() => { const s = new THREE.SpotLight(0xffffff, 0, 0, Math.PI / 7, 0.5, 1.1); scene.add(s); scene.add(s.target); return s; });
         const roomLights = [0, 1, 2].map(() => { const p = new THREE.PointLight(0xffd7a0, 6, 0, 1.6); scene.add(p); return p; });
 
@@ -145,9 +155,10 @@ const Scene3D = (() => {
         let overlayGroup = new THREE.Group(); scene.add(overlayGroup);
         let liveGroup = new THREE.Group(); scene.add(liveGroup);
         let ghost = null;
+        let prevIds = null;
         const walls = [];
         const doors = [];
-        const anim = { beams: [], movers: [], screens: [], neon: [], crowd: null, heads: null, band: [], slots: [], haze: [] };
+        const anim = { beams: [], movers: [], screens: [], neon: [], crowd: null, heads: null, band: [], slots: [], haze: [], pops: [] };
         const live = { crowd: 0, vibe: 0.5, playing: false, phase: 0, color: new THREE.Color(0xff3b30), pulse: 0, alarm: false };
         const cam = { pos: new THREE.Vector3(0, 6, 10), target: new THREE.Vector3(), fromPos: new THREE.Vector3(), fromTarget: new THREE.Vector3(), toPos: new THREE.Vector3(), toTarget: new THREE.Vector3(), t: 1, yaw: 0, pitch: 0, zoom: 1 };
         let geo = { W: 8, D: 7, ox: 0, oz: 0, ph: 1, stageH: 0.4, wallH: 3 };
@@ -172,6 +183,7 @@ const Scene3D = (() => {
 
         /* ---------------------------- room ----------------------------- */
         function buildRoom() {
+            prevIds = null;
             dispose(room);
             walls.length = 0;
             doors.length = 0;
@@ -195,6 +207,7 @@ const Scene3D = (() => {
             floorMat.map.repeat.set(geo.W / (self.floorId === 'checker' ? 2 : 3), geo.D / (self.floorId === 'checker' ? 2 : 3));
             const floor = new THREE.Mesh(new THREE.PlaneGeometry(geo.W, geo.D), floorMat);
             floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
             room.add(floor);
             // Ground beyond the walls
             const ground = new THREE.Mesh(new THREE.PlaneGeometry(geo.W * 6, geo.D * 6), M('ground' + (vis.outdoor ? 'o' : 'i'), { color: vis.outdoor ? 0x0f1a12 : 0x0c0c0f, roughness: 1 }));
@@ -211,6 +224,7 @@ const Scene3D = (() => {
                 m.map.repeat.set(len / 2, geo.wallH / 1.6);
                 const mesh = box(w, geo.wallH, d, m);
                 mesh.position.set(x, geo.wallH / 2, z);
+                mesh.receiveShadow = true;
                 mesh.userData.normal = new THREE.Vector3(nx, 0, nz);
                 room.add(mesh);
                 walls.push(mesh);
@@ -311,6 +325,11 @@ const Scene3D = (() => {
             key.position.set(sx, geo.wallH + longest * 0.5, sz + longest * 0.7);
             key.target.position.set(sx, geo.stageH, sz);
             key.intensity = 30 + longest * 4;
+            sun.position.set(-geo.W * 0.3, geo.wallH + longest * 0.9, geo.D * 0.6 + 2);
+            sun.target.position.set(0, 0, -geo.D * 0.1);
+            const sc = sun.shadow.camera, ext = longest * 0.75 + 1;
+            sc.left = -ext; sc.right = ext; sc.top = ext; sc.bottom = -ext; sc.near = 0.5; sc.far = longest * 4 + 30;
+            sc.updateProjectionMatrix();
             roomLights.forEach((p, i) => {
                 p.color.setHex(vis.ceilingLights);
                 p.position.set((i - 1) * geo.W * 0.3, geo.wallH * 0.9, geo.D * 0.1);
@@ -322,6 +341,7 @@ const Scene3D = (() => {
                 s.target.position.set(sx + (i - 1) * sw * 0.2, geo.stageH, sz - sd * 0.2);
                 s.intensity = 0;
             });
+            room.traverse(o => { if (o.isMesh && !o.material.transparent && o.geometry.type !== 'PlaneGeometry') { o.castShadow = true; o.receiveShadow = true; } });
             scene.fog.density = vis.outdoor ? 0.004 : 0.015;
         }
 
@@ -582,7 +602,10 @@ const Scene3D = (() => {
 
         function buildItems() {
             dispose(itemsGroup);
-            anim.beams = []; anim.movers = []; anim.screens = []; anim.neon = [];
+            anim.beams = []; anim.movers = []; anim.screens = []; anim.neon = []; anim.pops = [];
+            // Newly placed fixtures drop in with a bounce (not on first load or in a new room)
+            const known = prevIds;
+            prevIds = new Set(self.items.map(i => i.id));
             let fog = false;
             self.items.forEach(it => {
                 const build = itemBuilders[it.type];
@@ -614,6 +637,16 @@ const Scene3D = (() => {
                 }
                 if (it.type === 'fog') fog = true;
                 g.userData.id = it.id;
+                g.traverse(o => { if (o.isMesh && !o.material.transparent) { o.castShadow = true; o.receiveShadow = true; } });
+                if (known && !known.has(it.id) && self.mode === 'design') {
+                    g.userData.pop = 0; g.userData.baseY = g.position.y; g.scale.setScalar(0.001);
+                    anim.pops.push(g);
+                    const ring = new THREE.Mesh(new THREE.RingGeometry(0.2, 0.26, 32), new THREE.MeshBasicMaterial({ color: 0xffd28a, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }));
+                    ring.rotation.x = -Math.PI / 2;
+                    ring.position.set(cx, (g.userData.onStage ? geo.stageH : 0) + 0.02, cz);
+                    ring.userData.ring = 0;
+                    itemsGroup.add(ring); anim.pops.push(ring);
+                }
                 itemsGroup.add(g);
             });
             // Haze sheets when a haze machine is installed
@@ -673,18 +706,58 @@ const Scene3D = (() => {
 
         /* ---------------------------- ghost ---------------------------- */
         self.setGhost = (rect, ok, tool) => {
-            if (ghost) { scene.remove(ghost); ghost.traverse(o => { if (o.geometry) o.geometry.dispose(); }); ghost = null; }
+            if (ghost) {
+                scene.remove(ghost);
+                ghost.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.userData.ghostMat) o.material.dispose(); });
+                ghost = null;
+            }
             if (!rect) return;
             const onStage = Sim.isStage(self.v, rect.r, rect.c);
-            const h = tool === 'pa' || tool === 'linearray' || tool === 'delay' ? 1.5 * geo.item : tool === 'restroom' || tool === 'greenroom' ? 1 * geo.item : 0.6 * geo.item;
-            const g = new THREE.Group();
             const color = ok ? 0x3ddc84 : 0xff3b30;
-            const b = box(rect.w * 0.98, h, rect.h * 0.98, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.22, depthWrite: false }));
-            b.position.y = h / 2;
-            g.add(b);
-            const edges = new THREE.LineSegments(new THREE.EdgesGeometry(b.geometry), new THREE.LineBasicMaterial({ color }));
-            edges.position.copy(b.position);
-            g.add(edges);
+            const g = new THREE.Group();
+            // Footprint on the floor
+            const plate = new THREE.Mesh(new THREE.PlaneGeometry(rect.w * 0.96, rect.h * 0.96), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.3, depthWrite: false }));
+            plate.rotation.x = -Math.PI / 2; plate.position.y = 0.012; plate.userData.ghostMat = true;
+            g.add(plate);
+            const rim = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(rect.w * 0.96, rect.h * 0.96)), new THREE.LineBasicMaterial({ color }));
+            rim.rotation.x = -Math.PI / 2; rim.position.y = 0.014; rim.userData.ghostMat = true;
+            g.add(rim);
+            // A see-through preview of the real fixture
+            const def = Sim.D.ITEMS[tool], build = itemBuilders[tool];
+            let model = null;
+            if (build && def && def.rule !== 'wall') {
+                const keep = Object.keys(anim).filter(k => Array.isArray(anim[k])).map(k => [k, anim[k].length]);
+                try { model = build({ id: 0, type: tool, r: rect.r, c: rect.c, w: rect.w, h: rect.h }, rect.w, rect.h); } catch (e) { model = null; }
+                keep.forEach(([k, n]) => { anim[k].length = n; });
+            }
+            if (model) {
+                const tint = new THREE.Color(color);
+                model.traverse(o => {
+                    if (!o.material) return;
+                    const m = o.material.clone();
+                    m.transparent = true; m.depthWrite = false;
+                    m.opacity = Math.min(m.opacity, 0.55);
+                    if (m.color) m.color.lerp(tint, 0.45);
+                    if (m.emissive) { m.emissive.copy(tint); m.emissiveIntensity = 0.45; }
+                    o.material = m; o.userData.ghostMat = true;
+                });
+                if (tool === 'bar' || tool === 'cocktail') {
+                    if (rect.c === 0) model.rotation.y = -Math.PI / 2;
+                    else if (rect.c === geo.W - 1) model.rotation.y = Math.PI / 2;
+                    else if (rect.r === geo.D - 1) model.rotation.y = 0;
+                    else model.rotation.y = Math.PI;
+                }
+            } else {
+                const h = tool === 'pa' || tool === 'linearray' || tool === 'delay' ? 1.5 * geo.item : tool === 'restroom' || tool === 'greenroom' ? 1 * geo.item : 0.6 * geo.item;
+                model = box(rect.w * 0.98, h, rect.h * 0.98, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.22, depthWrite: false }));
+                model.geometry.translate(0, h / 2, 0);
+                model.userData.ghostMat = true;
+                const edges = new THREE.LineSegments(new THREE.EdgesGeometry(model.geometry), new THREE.LineBasicMaterial({ color }));
+                edges.userData.ghostMat = true;
+                model.add(edges);
+            }
+            g.add(model);
+            g.userData.model = model;
             g.position.set(rect.c + rect.w / 2 - geo.W / 2, onStage ? geo.stageH : 0, rect.r + rect.h / 2 - geo.D / 2);
             ghost = g;
             scene.add(g);
@@ -870,6 +943,22 @@ const Scene3D = (() => {
             const dt = Math.min(0.05, clock.getDelta());
             const t = clock.elapsedTime;
             updateCamera(dt);
+            // Construction juice: fixtures bounce in, a dust ring spreads, the preview hovers
+            if (anim.pops.length) {
+                anim.pops = anim.pops.filter(o => {
+                    if (o.userData.ring !== undefined) {
+                        const k = o.userData.ring = Math.min(1, o.userData.ring + dt / 0.5);
+                        o.scale.setScalar(1 + k * 3.5); o.material.opacity = 0.8 * (1 - k);
+                        return k < 1;
+                    }
+                    const p = o.userData.pop = Math.min(1, o.userData.pop + dt / 0.42);
+                    const c1 = 1.70158, c3 = c1 + 1;
+                    o.scale.setScalar(Math.max(0.001, 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2)));
+                    o.position.y = o.userData.baseY + Math.pow(1 - p, 2) * 0.5;
+                    return p < 1;
+                });
+            }
+            if (ghost && ghost.userData.model) ghost.userData.model.position.y = 0.02 + Math.abs(Math.sin(t * 3)) * 0.04;
             live.pulse = Math.max(0, live.pulse - dt * 0.8);
             const energy = self.mode === 'live' ? (live.playing ? 0.35 + live.vibe * 0.65 : 0.15) : 0.6;
 
@@ -904,9 +993,14 @@ const Scene3D = (() => {
                 if (self.mode === 'live' && live.playing) {
                     s.intensity = (8 + energy * 30) * (0.6 + 0.4 * Math.sin(t * 3 + i * 2)) + live.pulse * 30;
                     s.color.copy(live.alarm ? new THREE.Color(0xff0000) : i === 1 ? new THREE.Color(0xffffff) : live.color);
-                } else s.intensity = self.mode === 'live' ? 4 : 0;
+                } else {
+                    // Design mode: a warm wash so the stage looks ready for a show
+                    s.intensity = self.mode === 'live' ? 4 : 12;
+                    if (self.mode !== 'live') s.color.setHex(i === 1 ? 0xffe6c0 : 0xffa070);
+                }
             });
             roomLights.forEach(p => { p.visible = !(self.mode === 'live' && live.playing); });
+            sun.intensity = self.mode === 'live' ? (live.playing ? 0.04 : 0.2) : 0.9;
 
             // Crowd
             if (anim.crowd && self.mode === 'live') {
@@ -954,6 +1048,8 @@ const Scene3D = (() => {
         self.setQuality = q => {
             self.quality = q;
             renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q === 'low' ? 1 : 2));
+            renderer.shadowMap.enabled = q !== 'low';
+            scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });
             self.resize();
         };
         self.pause = () => { self.running = false; if (rafId) cancelAnimationFrame(rafId); rafId = null; };
