@@ -764,6 +764,84 @@ const Scene3D = (() => {
         };
 
         /* ----------------------------- live ---------------------------- */
+        // Show FX: confetti cannons and flame jets for encores and big moments
+        function buildFX() {
+            const ph = geo.ph, st = geo.stage;
+            const group = new THREE.Group();
+            const N = self.quality === 'low' ? 160 : 360;
+            const conf = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.06 * ph, 0.038 * ph), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }), N);
+            conf.count = 0; conf.frustumCulled = false;
+            const cols = [0xff3b30, 0xffb238, 0xff3d9a, 0x4fd1ff, 0x3ddc84, 0xffffff, 0xb98cff];
+            const col = new THREE.Color();
+            for (let i = 0; i < N; i++) conf.setColorAt(i, col.setHex(cols[i % cols.length]));
+            group.add(conf);
+            const flames = [-0.46, 0.46].map(f => {
+                const g = new THREE.Group();
+                g.position.set(st.x + f * st.w, geo.stageH, st.z + st.d / 2 - 0.14);
+                const nozzle = box(0.14 * ph, 0.08 * ph, 0.14 * ph, M('nozzle', { color: 0x222226, metalness: 0.7, roughness: 0.4 }));
+                nozzle.position.y = 0.04 * ph; g.add(nozzle);
+                const cone = new THREE.Mesh(new THREE.ConeGeometry(0.16 * ph, 1.4 * ph, 14, 1, true), new THREE.MeshBasicMaterial({ color: 0xff7a1a, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+                cone.rotation.x = Math.PI; cone.position.y = 0.78 * ph; g.add(cone);
+                const core = glow(0xffd28a, 1.1 * ph, 0); core.position.y = 0.45 * ph; g.add(core);
+                group.add(g);
+                return { cone, core, delay: 0, life: 0 };
+            });
+            const flash = new THREE.PointLight(0xff8a3a, 0, 0, 1.4);
+            flash.position.set(st.x, geo.stageH + ph * 1.2, st.z + st.d / 2);
+            group.add(flash);
+            return { group, conf, N, parts: [], flames, flash, confT: 0, m4: new THREE.Matrix4(), q: new THREE.Quaternion(), e: new THREE.Euler(), p: new THREE.Vector3(), one: new THREE.Vector3(1, 1, 1) };
+        }
+        function burst(kind) {
+            const fx = anim.fx;
+            if (!fx || self.mode !== 'live') return;
+            const g = (live.act && live.act.genre) || live.genre;
+            const soft = g === 'jazz' || g === 'folk' || g === 'country';
+            // 'jets' = flames only (quiet genres skip them); 'pyro' falls back to confetti for quiet genres
+            if (kind === 'jets') { if (!soft) fx.flames.forEach((f, i) => { f.delay = i * 0.12; f.life = 0.75; }); return; }
+            if (kind !== 'pyro' || soft) {
+                const st = geo.stage;
+                for (let i = 0; i < fx.N; i++) {
+                    fx.parts[i] = { x: st.x + (Math.random() - 0.5) * st.w * 1.7, y: st.trussY + Math.random() * 0.5, z: st.z + st.d / 2 + Math.random() * geo.D * 0.5,
+                        vx: (Math.random() - 0.5) * 0.5, vy: -0.2 - Math.random() * 0.35, rx: Math.random() * 6, ry: Math.random() * 6, spin: 2 + Math.random() * 6 };
+                }
+                fx.conf.count = fx.N; fx.confT = 0;
+            }
+            if (kind !== 'confetti' && !soft) fx.flames.forEach((f, i) => { f.delay = i * 0.12; f.life = 0.75; });
+        }
+        self.fx = burst;
+        function animateFX(dt, t) {
+            const fx = anim.fx;
+            if (!fx) return;
+            if (fx.conf.count) {
+                fx.confT += dt;
+                for (let i = 0; i < fx.conf.count; i++) {
+                    const c = fx.parts[i];
+                    if (c.y > 0.02) {
+                        c.vy = Math.max(c.vy - dt * 0.18, -0.5);
+                        c.x += (c.vx + Math.sin(fx.confT * 3 + i) * 0.18) * dt;
+                        c.y += c.vy * dt;
+                        c.z += Math.cos(fx.confT * 2.3 + i) * 0.12 * dt;
+                        c.rx += c.spin * dt; c.ry += c.spin * 0.7 * dt;
+                    } else { c.y = 0.02; c.rx = -Math.PI / 2; c.ry = 0; }
+                    fx.e.set(c.rx, c.ry, 0); fx.q.setFromEuler(fx.e); fx.p.set(c.x, c.y, c.z);
+                    fx.m4.compose(fx.p, fx.q, fx.one); fx.conf.setMatrixAt(i, fx.m4);
+                }
+                fx.conf.instanceMatrix.needsUpdate = true;
+                if (fx.confT > 10) fx.conf.count = 0;
+            }
+            let fire = 0;
+            fx.flames.forEach(f => {
+                let a = 0;
+                if (f.delay > 0) f.delay -= dt;
+                else if (f.life > 0) { f.life -= dt; a = Math.sin(Math.PI * Math.min(1, 1 - f.life / 0.75)); }
+                f.cone.material.opacity = 0.8 * a;
+                f.cone.scale.set(1, 0.6 + 0.5 * a + 0.08 * Math.sin(t * 47), 1);
+                f.core.material.opacity = a;
+                fire = Math.max(fire, a);
+            });
+            fx.flash.intensity = fire * 28;
+        }
+
         function buildLive() {
             dispose(liveGroup);
             anim.crowd = null; anim.heads = null; anim.band = []; anim.slots = [];
@@ -797,6 +875,8 @@ const Scene3D = (() => {
             anim.crowd = Characters.buildCrowd(anim.slots, geo.ph, self.quality);
             if (anim.crowd) liveGroup.add(anim.crowd.group);
             buildBand();
+            anim.fx = buildFX();
+            liveGroup.add(anim.fx.group);
         }
 
         // Band on stage: genre-styled musicians for whoever is playing right now.
@@ -810,7 +890,7 @@ const Scene3D = (() => {
             if (o.crowd !== undefined) live.crowd = o.crowd;
             if (o.vibe !== undefined) live.vibe = o.vibe;
             if (o.playing !== undefined) live.playing = o.playing;
-            if (o.phase !== undefined) live.phase = o.phase;
+            if (o.phase !== undefined) { if (o.phase === 4 && live.phase !== 4) setTimeout(() => burst('both'), 400); live.phase = o.phase; }
             if (o.genre) live.color.set(Sim.D.GENRES[o.genre].color);
             // A new act (or genre) on stage means a new band to draw.
             let rebuild = false;
@@ -818,7 +898,7 @@ const Scene3D = (() => {
             if (o.act && (!live.act || o.act.id !== live.act.id)) { live.act = o.act; rebuild = true; }
             if (rebuild && self.mode === 'live' && self.report && geo.stage) buildBand();
         };
-        self.pulse = x => { live.pulse = Math.max(live.pulse, x); };
+        self.pulse = x => { live.pulse = Math.max(live.pulse, x); if (x >= 1) burst(Math.random() < 0.5 ? 'confetti' : 'pyro'); };
         self.alarm = on => { live.alarm = on; };
         self.celebrate = () => { live.pulse = 1; };
 
@@ -905,8 +985,28 @@ const Scene3D = (() => {
             return null;
         }
         let down = null, lastCell = null;
-        canvas.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, button: e.button, moved: false }; canvas.setPointerCapture(e.pointerId); });
+        canvas.addEventListener('pointerdown', e => {
+            down = { x: e.clientX, y: e.clientY, button: e.button, moved: false, paint: e.shiftKey && e.button === 0 && self.mode === 'design' };
+            canvas.setPointerCapture(e.pointerId);
+            // Shift + drag paints a row of fixtures instead of turning the camera
+            if (down.paint) {
+                e.preventDefault();
+                const cell = pick(e);
+                down.cell = cell;
+                if (self.onPaintStart) self.onPaintStart();
+                if (cell && self.onClick) { if (self.onHover) self.onHover(cell.r, cell.c); self.onClick(cell.r, cell.c, false); }
+            }
+        });
         canvas.addEventListener('pointermove', e => {
+            if (down && down.paint) {
+                const cell = pick(e);
+                if (cell && (!down.cell || down.cell.r !== cell.r || down.cell.c !== cell.c)) {
+                    down.cell = cell;
+                    if (self.onHover) self.onHover(cell.r, cell.c);
+                    if (self.onClick) self.onClick(cell.r, cell.c, false);
+                }
+                return;
+            }
             if (down) {
                 const dx = e.clientX - down.x, dy = e.clientY - down.y;
                 if (Math.abs(dx) + Math.abs(dy) > 6) down.moved = true;
@@ -925,6 +1025,7 @@ const Scene3D = (() => {
             } else if (lastCell) { lastCell = null; if (self.onLeave) self.onLeave(); }
         });
         canvas.addEventListener('pointerup', e => {
+            if (down && down.paint) { down = null; if (self.onPaintEnd) self.onPaintEnd(); return; }
             const wasDrag = down && down.moved;
             const button = down ? down.button : 0;
             down = null;
@@ -961,10 +1062,13 @@ const Scene3D = (() => {
             if (ghost && ghost.userData.model) ghost.userData.model.position.y = 0.02 + Math.abs(Math.sin(t * 3)) * 0.04;
             live.pulse = Math.max(0, live.pulse - dt * 0.8);
             const energy = self.mode === 'live' ? (live.playing ? 0.35 + live.vibe * 0.65 : 0.15) : 0.6;
+            // The music engine's beat: lights hit on every kick, the band and crowd move in time
+            const mb = self.mode === 'live' && live.playing && typeof Music !== 'undefined' && Music.beatInfo ? Music.beatInfo() : null;
+            const kick = mb ? Math.pow(1 - (mb.beat % 1), 4) : 0;
 
             anim.beams.forEach((b, i) => {
                 const flick = self.mode === 'live' ? (0.5 + 0.5 * Math.sin(t * (2 + live.vibe * 6) + i)) : 0.7;
-                b.mesh.material.opacity = b.base * (0.4 + flick * energy) + live.pulse * 0.1;
+                b.mesh.material.opacity = b.base * (0.4 + flick * energy) + live.pulse * 0.1 + kick * 0.07 * energy;
                 if (self.mode === 'live' && live.playing) b.mesh.material.color.copy(i % 2 ? live.color : new THREE.Color(b.color));
             });
             anim.movers.forEach(m => {
@@ -991,7 +1095,7 @@ const Scene3D = (() => {
             // Stage spotlights in live mode
             stageSpots.forEach((s, i) => {
                 if (self.mode === 'live' && live.playing) {
-                    s.intensity = (8 + energy * 30) * (0.6 + 0.4 * Math.sin(t * 3 + i * 2)) + live.pulse * 30;
+                    s.intensity = (8 + energy * 30) * (0.6 + 0.4 * Math.sin(t * 3 + i * 2)) + live.pulse * 30 + kick * energy * 28;
                     s.color.copy(live.alarm ? new THREE.Color(0xff0000) : i === 1 ? new THREE.Color(0xffffff) : live.color);
                 } else {
                     // Design mode: a warm wash so the stage looks ready for a show
@@ -1006,8 +1110,11 @@ const Scene3D = (() => {
             if (anim.crowd && self.mode === 'live') {
                 const n = Math.min(anim.slots.length, Math.round(anim.slots.length * Math.min(1, live.crowd)));
                 const bpm = 2.2 + live.vibe * 1.6;
-                Characters.animateCrowd(anim.crowd, n, t, { playing: live.playing, vibe: live.vibe, bpm });
-                Characters.animateBand(anim.band, t, { visible: live.playing && live.phase > 0 && live.phase < 5, playing: live.playing, vibe: live.vibe });
+                Characters.animateCrowd(anim.crowd, n, t, { playing: live.playing, vibe: live.vibe, bpm, beat: mb ? mb.beat : null });
+                Characters.animateBand(anim.band, t, { visible: live.playing && live.phase > 0 && live.phase < 5, playing: live.playing, vibe: live.vibe, beat: mb ? mb.beat : null });
+                // Encores fire the flame jets every two bars
+                if (live.phase === 4 && mb) { const bar = Math.floor(mb.beat / 8); if (bar !== anim.pyroBar) { anim.pyroBar = bar; burst('jets'); } }
+                animateFX(dt, t);
             }
             renderer.render(scene, camera);
         }
