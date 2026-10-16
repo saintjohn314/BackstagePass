@@ -722,6 +722,9 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
     .designer-actions { width: 100%; flex-wrap: wrap; }
     .designer-actions .btn { flex: 1; }
 }
+.btn-chip.quick { border-color: var(--amber); color: var(--amber); }
+.btn-chip.quick:hover:not(:disabled) { border-color: var(--amber); background: rgba(255,178,56,0.15); color: #fff; }
+
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
