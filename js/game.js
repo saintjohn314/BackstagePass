@@ -1603,10 +1603,21 @@ const Game = {
     },
 
     flavorLine(sat, att) {
-        const pick = a => a[Math.floor(Math.random() * a.length)];
+        // Don't repeat any of the last few lines, so the feed doesn't read like a broken record.
+        const live = this.ui.live || {};
+        const recent = live.recentFlavor || (live.recentFlavor = []);
+        const pick = a => {
+            // Skip lines used recently (never all of them, so there's always a fresh one).
+            const avoid = recent.slice(-Math.min(4, a.length - 1));
+            const fresh = a.filter(l => !avoid.includes(l));
+            const line = fresh[Math.floor(Math.random() * fresh.length)];
+            recent.push(line);
+            if (recent.length > 4) recent.shift();
+            return line;
+        };
         if (sat >= 80) return pick(['The floor is bouncing. Literally.', 'Phones in the air for a singalong.', 'Someone crowd-surfs all the way to the bar.', 'The bar can barely keep up. Nobody minds.', 'Strangers hugging at the barrier.']);
         if (sat >= 60) return pick(['Heads nodding all the way to the back wall.', 'A small pit opens up near the front.', 'Merch line is ten deep.', 'The sound guy gives you a thumbs up.', `${att.toLocaleString()} people and the room feels alive.`]);
-        if (sat >= 40) return pick(['Polite applause between songs.', 'Some folks drift toward the bar.', 'A couple near the door checks their phones.', 'The crowd warms up slowly.']);
+        if (sat >= 40) return pick(['Polite applause between songs.', 'Some folks drift toward the bar.', 'A couple near the door checks their phones.', 'The crowd warms up slowly.', 'A few people sway by the soundboard.', 'Someone up front shouts a song request.', 'The back of the room chats through the quiet one.']);
         return pick(['Long gaps of silence between songs.', 'People are leaving early.', 'Someone asks for a refund at the door.', 'The bartender looks bored.']);
     },
 
