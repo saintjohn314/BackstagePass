@@ -261,6 +261,7 @@
                         </div>
                         <div class="seg seg-sm" id="camera-presets"></div>
                         <div class="view-tools">
+                            <button class="btn-chip quick" id="quick-build-btn" onclick="Game.quickBuild()" title="Draft a ready-to-play starter layout"><svg class="ic"><use href="#i-bolt"/></svg>QUICK BUILD</button>
                             <button class="btn-chip" id="rotate-btn" onclick="Game.rotateTool()" title="Rotate (R)"><svg class="ic"><use href="#i-rotate"/></svg>ROTATE</button>
                             <button class="btn-chip" id="overlay-btn" onclick="Game.toggleOverlay()" title="Show sound coverage"><svg class="ic"><use href="#i-volume"/></svg>SOUND MAP</button>
                         </div>
@@ -268,7 +269,7 @@
                     <div class="viewport" id="designer-viewport">
                         <div id="three-host" class="three-host"></div>
                         <div id="plan-host" class="plan-host hidden"></div>
-                        <div class="viewport-hint" id="designer-hint">Select equipment, then click the floor to place it.</div>
+                        <div class="viewport-hint" id="designer-hint">New here? Hit QUICK BUILD for a ready-to-play layout, or pick equipment and click the floor.</div>
                     </div>
                     <div class="designer-footer">
                         <div class="estimate" id="designer-estimate"></div>
@@ -500,7 +501,9 @@
     <script src="js/data.js"></script>
     <script src="js/sim.js"></script>
     <script src="js/music.js"></script>
+    <script src="js/characters.js"></script>
     <script src="js/scene3d.js"></script>
     <script src="js/game.js"></script>
+    <script src="js/quickbuild.js"></script>
 </body>
 </html>
