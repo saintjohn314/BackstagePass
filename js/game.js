@@ -1507,7 +1507,11 @@ const Game = {
                 this.feed('The crowd stomps for an encore…', 'big');
             }
             document.getElementById('live-status').textContent = phases[phaseIdx][0];
-            if (this.scene) this.scene.setLive({ playing: phaseIdx > 0, phase: phaseIdx });
+            // Tell the 3D stage who's playing so it can dress the band for their genre.
+            const act = bill.openMic ? (phaseIdx > 0 && phaseIdx < 4 ? bill.headliner : null)
+                : slotIdx !== undefined ? (bill.slots.find(x => x.slot.id === slotDefs[slotIdx]) || {}).band
+                : phaseIdx === 4 ? bill.headliner : null;
+            if (this.scene) this.scene.setLive({ playing: phaseIdx > 0, phase: phaseIdx, act: act || null });
         }
         const reveals = bill.openMic ? [[0, 75]] : bill.slots.map((s, i) => [i, { opener: 26, support: 50, headliner: 82 }[s.slot.id]]);
         reveals.forEach(([i, at]) => {
