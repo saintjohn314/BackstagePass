@@ -9,6 +9,7 @@ const Music = (() => {
     let ctx = null, master = null, musicBus = null, crowdBus = null, reverb = null, revSend = null;
     let guitarBus = null, noiseBuf = null, crowdSrc = null, crowdGain = null;
     let timer = null, current = null, step = 0, nextTime = 0, volume = 0.56;
+    let songStart = 0, startTimer = null, lastShift = 0;
     const api = { started: false };
 
     const midiHz = m => 440 * Math.pow(2, (m - 69) / 12);
@@ -203,6 +204,18 @@ const Music = (() => {
        --------------------------------------------------------------- */
     const RIFF_A = [[0, 0, 1.5, 1], [2, 0, 1.5, 1], [4, 0, 1.5, 1], [6, 0, 1.5, 1], [8, 3, 2, 0], [10, 5, 2, 0], [12, 0, 1.5, 1], [14, 0, 1.5, 1]];
     const RIFF_A2 = [[0, 0, 1.5, 1], [2, 0, 1.5, 1], [4, 0, 1.5, 1], [6, 0, 1.5, 1], [8, 7, 2, 0], [10, 5, 2, 0], [12, 3, 2, 0], [14, 2, 2, 0]];
+    // More riffs, so every band plays songs of its own
+    const RIFF_B = [[0, 0, 1.5, 1], [2, 0, 1.5, 1], [4, 3, 2, 0], [6, 0, 1.5, 1], [8, 5, 2, 0], [10, 6, 1, 0], [11, 5, 1, 0], [12, 3, 2, 0], [14, 0, 1.5, 1]];
+    const RIFF_C = [[0, 0, 3, 0], [3, 0, 1, 1], [4, 7, 3, 0], [7, 0, 1, 1], [8, 5, 3, 0], [11, 0, 1, 1], [12, 3, 2, 0], [14, 2, 2, 0]];
+    const RIFFS = [RIFF_A, RIFF_B, RIFF_C];
+    // Chord changes per song variant: [rock chorus, punk verse, electro, groove]
+    const ALT = {
+        chorus: [[-4, 3, -2, 0], [0, -2, -4, -2], [5, 3, 0, -2]],
+        punk: [[0, 0, 5, 3], [0, 3, 5, 5], [0, -2, 3, 5]],
+        electro: [[0, -4, 3, -2], [0, 3, -2, -4], [0, 5, 3, -2]],
+        arp: [[0, 7, 12, 15, 12, 7, 3, 7], [0, 12, 7, 12, 3, 12, 7, 15], [0, 3, 7, 10, 12, 10, 7, 3]],
+        groove: [[0, 0, 5, 3], [0, 3, 5, 3], [0, -2, 3, 5]]
+    };
     const MEL_1 = [
         [[0, 59, 3], [3, 62, 3], [6, 64, 6, 1], [12, 62, 2], [14, 64, 2]],
         [[0, 67, 4, 1], [4, 64, 4], [8, 62, 4], [12, 59, 4]],
@@ -256,13 +269,16 @@ const Music = (() => {
 
     function scheduleStep(st, t, style) {
         const S = STYLES[style];
-        const s16 = 60 / S.bpm / 4;
+        // Live sets: each song has its own key, tempo and riff (see pickVariant)
+        const V = current && current.style === style && current.shift !== undefined ? current : null;
+        const alt = V ? V.alt : 0;
+        const s16 = 60 / (S.bpm * (V ? V.tempo : 1)) / 4;
         const total = S.bars * 16;
         let pos = st;
         if (pos >= total) pos = S.loopTo * 16 + ((pos - total) % ((S.bars - S.loopTo) * 16));
         const bar = Math.floor(pos / 16), s = pos % 16;
         const a = S.arrange(bar);
-        const K = S.key;
+        const K = S.key + (V ? V.shift : 0);
         const lastBarOfPhrase = (a.i % 4) === 3;
 
         switch (a.sec) {
@@ -276,7 +292,7 @@ const Music = (() => {
                 break;
             }
             case 'riff': {
-                const riff = a.i === 3 ? RIFF_A2 : RIFF_A;
+                const riff = a.i === 3 ? RIFF_A2 : RIFFS[alt];
                 riff.forEach(([at, n, len, mute]) => { if (at === s) { powerChord(t, K + n, s16 * len, !!mute); } });
                 if (s % 2 === 0) { const root = (riff.filter(e => e[0] <= s).pop() || [0, 0])[1]; bass(t, K - 12 + root, s16 * 1.8); }
                 if ([0, 8, 10].includes(s)) kick(t);
@@ -318,7 +334,7 @@ const Music = (() => {
                 break;
             }
             case 'punk': {
-                if (s % 2 === 0) { powerChord(t, K + [0, 0, 5, 3][a.i] + (s >= 8 ? [0, 0, 2, 2][a.i] : 0), s16 * 1.6, s % 4 !== 0); bass(t, K - 12 + [0, 0, 5, 3][a.i], s16 * 1.6); }
+                if (s % 2 === 0) { const pr = ALT.punk[alt][a.i]; powerChord(t, K + pr + (s >= 8 ? [0, 0, 2, 2][a.i] : 0), s16 * 1.6, s % 4 !== 0); bass(t, K - 12 + pr, s16 * 1.6); }
                 if (s % 4 === 0) kick(t);
                 if (s % 4 === 2) snare(t, 0.8);
                 hat(t, false, 0.7);
@@ -326,7 +342,7 @@ const Music = (() => {
                 break;
             }
             case 'chorus': {
-                const root = CHORUS_ROOTS[a.i % 4];
+                const root = ALT.chorus[alt][a.i % 4];
                 if (s === 0 || s === 6 || s === 8 || s === 14) powerChord(t, K + root, s16 * (s === 8 ? 6 : 2), false);
                 if (s % 2 === 0) bass(t, K - 12 + root, s16 * 1.8);
                 if ([0, 3, 8, 11].includes(s)) kick(t);
@@ -346,19 +362,19 @@ const Music = (() => {
             }
             case 'electro':
             case 'electro2': {
-                const roots = [0, -4, 3, -2];
+                const roots = ALT.electro[alt];
                 const root = roots[a.i];
                 if (s % 4 === 0) kick(t, 0.9);
                 if (s % 4 === 2) hat(t, true, 0.8);
                 if (s === 4 || s === 12) clap(t);
                 if (s % 2 === 1) bass(t, K - 12 + root, s16 * 0.9, 'sawtooth', 0.26);
-                const arp = [0, 7, 12, 15, 12, 7, 3, 7];
+                const arp = ALT.arp[alt];
                 if (a.sec === 'electro2' || s % 2 === 0) lead(t, K + 12 + root + arp[s % 8], s16 * 0.9, { type: 'sawtooth', clean: true, vol: 0.04, cutoff: 2600 });
                 if (s === 0 && a.i === 0) crash(t);
                 break;
             }
             case 'groove': {
-                const roots = [0, 0, 5, 3];
+                const roots = ALT.groove[alt];
                 const root = roots[a.i];
                 const swing = s % 2 === 1 ? s16 * 0.3 : 0;
                 if (s === 0 || s === 7 || s === 10) kick(t, 0.95);
@@ -381,25 +397,131 @@ const Music = (() => {
             const dur = scheduleStep(step, nextTime, current.style);
             nextTime += dur;
             step++;
+            // End of a live song: the crowd cheers, then the band starts the next one
+            if (current.songLen && step >= current.songLen) {
+                cheer(0.55, nextTime);
+                nextTime += 1.6;
+                songStart = nextTime;
+                step = 0;
+                pickVariant(current);
+            }
         }
+    }
+
+    // A fresh song: new key, a touch faster or slower, a different riff and length.
+    function pickVariant(cur) {
+        const shifts = [0, -2, 2, 3, -3, 5, -5].filter(s => s !== lastShift);
+        cur.shift = lastShift = shifts[Math.floor(Math.random() * shifts.length)];
+        cur.tempo = 0.93 + Math.random() * 0.14;
+        cur.alt = Math.floor(Math.random() * 3);
+        cur.songLen = (Math.random() < 0.5 ? 24 : 32) * 16;
+    }
+
+    // Where the band is in the bar right now, for lights and dancing in time.
+    function beatInfo() {
+        if (!ctx || !current || current.name !== 'live') return null;
+        const S = STYLES[current.style];
+        const bpm = S.bpm * (current.tempo || 1);
+        const now = ctx.currentTime - (ctx.outputLatency || ctx.baseLatency || 0);
+        if (now < songStart) return null;
+        return { bpm, beat: (now - songStart) * bpm / 60, live: true };
+    }
+
+    // Crowd cheer: a roar that swells and fades, with a few whistles on top.
+    function cheer(level = 0.6, when) {
+        if (!ctx || !noiseBuf) return;
+        const t = Math.max(when || 0, ctx.currentTime);
+        const dur = 1.4 + level * 1.6;
+        const out = ctx.createGain();
+        out.gain.value = 1;
+        out.connect(crowdBus);
+        [[700, 0.5, 0.8], [1700, 0.8, 0.5]].forEach(([freq, q, vol]) => {
+            const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+            const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = q;
+            f.frequency.setValueAtTime(freq * 0.8, t);
+            f.frequency.linearRampToValueAtTime(freq * 1.15, t + 0.4);
+            f.frequency.linearRampToValueAtTime(freq, t + dur);
+            const g = ctx.createGain();
+            g.gain.setValueAtTime(0.0001, t);
+            g.gain.exponentialRampToValueAtTime(vol * level, t + 0.25);
+            g.gain.setTargetAtTime(0.0001, t + 0.5, dur / 3.5);
+            s.connect(f).connect(g).connect(out);
+            s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.6);
+        });
+        const n = Math.round(1 + level * 4);
+        for (let i = 0; i < n; i++) {
+            const w = t + 0.1 + Math.random() * dur * 0.6, len = 0.35 + Math.random() * 0.45;
+            const o = ctx.createOscillator(), g = ctx.createGain();
+            o.type = 'sine';
+            const base = 1500 + Math.random() * 900;
+            o.frequency.setValueAtTime(base * 0.75, w);
+            o.frequency.exponentialRampToValueAtTime(base * 1.15, w + len * 0.45);
+            o.frequency.exponentialRampToValueAtTime(base * 0.85, w + len);
+            env(g, w, 0.05, 0.03 + Math.random() * 0.02, len, len * 0.4);
+            o.connect(g).connect(out);
+            o.start(w); o.stop(w + len + 0.02);
+        }
+        setTimeout(() => { try { out.disconnect(); } catch (e) { /* gone */ } }, (t - ctx.currentTime + dur + 1) * 1000);
+    }
+
+    // End-of-show applause: hundreds of hands, thinning out, under a big cheer.
+    function applause(level = 0.8) {
+        if (!ctx || !noiseBuf) return;
+        const t = ctx.currentTime + 0.05, len = 3 + level * 2;
+        const out = ctx.createGain(); out.gain.value = 1; out.connect(crowdBus);
+        const n = Math.round(60 + level * 130);
+        for (let i = 0; i < n; i++) {
+            const w = t + Math.pow(Math.random(), 1.6) * len;
+            const s = ctx.createBufferSource(); s.buffer = noiseBuf;
+            const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900 + Math.random() * 1600; f.Q.value = 1.4;
+            const g = ctx.createGain();
+            const v = (0.12 + Math.random() * 0.16) * (1 - (w - t) / (len * 1.3));
+            g.gain.setValueAtTime(v, w);
+            g.gain.exponentialRampToValueAtTime(0.0005, w + 0.05 + Math.random() * 0.03);
+            s.connect(f).connect(g).connect(out);
+            s.start(w, Math.random() * 1.8); s.stop(w + 0.1);
+        }
+        cheer(level, t);
+        setTimeout(() => { try { out.disconnect(); } catch (e) { /* gone */ } }, (len + 1.5) * 1000);
+    }
+
+    // The next band (or the encore) starts a new song after a cheer.
+    function nextSong(genre) {
+        if (!ctx) return;
+        cheer(0.6);
+        play('live', { genre, force: true, gap: 0.9 });
+    }
+
+    // Band finishes: the music fades out but the crowd keeps going.
+    function endSet() {
+        if (!ctx || !current) return;
+        clearTimeout(startTimer); startTimer = null;
+        fadeOut(1.2);
+        current = null;
+        setTimeout(() => { if (!current && timer) { clearInterval(timer); timer = null; } }, 1300);
     }
 
     function play(name, opts) {
         if (!ctx) return;
         if (ctx.state === 'suspended') ctx.resume();
         const style = name === 'menu' ? 'anthem' : (GENRE_STYLE[(opts && opts.genre)] || 'rock');
-        if (current && current.style === style && current.name === name) return;
+        if (current && current.style === style && current.name === name && !(opts && opts.force)) return;
         const start = () => {
+            startTimer = null;
             current = { name, style };
+            if (name === 'live') pickVariant(current);
             step = 0;
             nextTime = ctx.currentTime + 0.08;
+            songStart = nextTime;
             const target = STYLES[style].vol;
             musicBus.gain.cancelScheduledValues(ctx.currentTime);
             musicBus.gain.setValueAtTime(0.0001, ctx.currentTime);
             musicBus.gain.exponentialRampToValueAtTime(target, ctx.currentTime + 0.6);
             if (!timer) timer = setInterval(tick, 25);
         };
-        if (current) { fadeOut(0.35); setTimeout(start, 380); } else start();
+        clearTimeout(startTimer); startTimer = null;
+        const gap = opts && opts.gap ? opts.gap : 0.38;
+        if (current) { fadeOut(0.35); startTimer = setTimeout(start, gap * 1000); } else start();
     }
 
     function fadeOut(sec) {
@@ -411,6 +533,7 @@ const Music = (() => {
     }
 
     function stop() {
+        clearTimeout(startTimer); startTimer = null;
         if (!ctx || !current) { setCrowd(0); return; }
         fadeOut(0.5);
         current = null;
@@ -442,5 +565,5 @@ const Music = (() => {
         if (master) master.gain.setTargetAtTime(Math.max(0.0001, volume), ctx.currentTime, 0.1);
     }
 
-    return Object.assign(api, { unlock, play, stop, setVolume, setCrowd });
+    return Object.assign(api, { unlock, play, stop, setVolume, setCrowd, beatInfo, cheer, applause, nextSong, endSet });
 })();
