@@ -675,6 +675,7 @@ const Characters = (() => {
             const inst = buildGuitar({ kind, bass: role === 'bass', color: pick(r, colors), guard: pick(r, ['#efe9dc', '#111114', '#efe9dc']) });
             inst.position.set(-0.025, acoustic ? 0.055 : 0.065, acoustic ? 0.098 : 0.084);
             inst.rotation.set(0, -0.12, role === 'bass' ? 0.36 : 0.42);
+            rig.instRot = inst.rotation.z;
             rig.spine.add(inst); rig.inst = inst;
             // Strap over the left shoulder
             const strapM = mat(pick(r, ['#141012', '#5a1a1a', '#2a2a30']), { rough: 0.7 });
@@ -758,7 +759,8 @@ const Characters = (() => {
         rig.lastT = t;
         const playing = !!o.playing;
         const e = playing ? 0.45 + 0.55 * clamp(o.vibe || 0.5, 0, 1) : 0.15;
-        const beats = t * rig.bpm / 60 + rig.seed;
+        // Follow the music's own beat when the game passes it in, so the band plays in time
+        const beats = o.beat != null ? o.beat : t * rig.bpm / 60 + rig.seed;
         const beatPh = frac(beats);
         const bounce = Math.abs(Math.sin(Math.PI * beats));
         const T = rig.tmp;
@@ -784,13 +786,17 @@ const Characters = (() => {
         rig.head.rotation.y = Math.sin(t * 0.45 + rig.seed) * (metal ? 0.08 : 0.2);
 
         if (rig.inst && !rig.sax) {
-            rig.spine.rotation.x = (metal ? 0.14 : 0.06) + 0.05 * e * bounce;
+            // Guitar solos: lean back, neck up, fast picking and fingers flying up the neck
+            const solo = rig.soloAmt = (rig.soloAmt || 0) + ((rig.solo ? 1 : 0) - (rig.soloAmt || 0)) * (1 - Math.exp(-dt * 4));
+            rig.inst.rotation.z = rig.instRot + 0.32 * solo;
+            rig.spine.rotation.x = (metal ? 0.14 : 0.06) + 0.05 * e * bounce - 0.22 * solo;
             rig.spine.rotation.z = Math.sin(beats * Math.PI * 0.25) * 0.05;
-            const slot = Math.floor(beats / 2 + rig.seed * 3);
+            rig.head.rotation.x -= 0.32 * solo;
+            const slot = Math.floor((solo > 0.5 ? beats * 2 : beats / 2) + rig.seed * 3);
             const fret = rig.frets[Math.abs(slot) % rig.frets.length];
             fromInstr(rig.inst, fret, T.a);
             reach(rig, 'L', T.a, POLE.fretL, dt, 10);
-            const strumRate = rig.role === 'bass' ? 1 : (punk || metal ? 2 : 1);
+            const strumRate = rig.solo ? 4 : rig.role === 'bass' ? 1 : (punk || metal ? 2 : 1);
             const sw = playing ? Math.sin(beats * Math.PI * 2 * strumRate) : 0;
             fromInstr(rig.inst, rig.inst.userData.strum, T.b);
             T.b.y += 0.035 * sw * e; T.b.z += 0.01;
@@ -865,6 +871,18 @@ const Characters = (() => {
             rig.spine.rotation.x = 0.14 + 0.05 * bounce * e;
             rig.legs[1].knee.rotation.x = 1.5 + (playing ? 0.12 * Math.max(0, Math.sin(Math.PI * 2 * beats)) : 0);
         }
+        // Move around the stage: the lead guitarist steps up to the edge for solos,
+        // front people roam, everyone drifts back home between songs
+        if (rig.mobile && rig.home) {
+            let tx = rig.home.x, tz = rig.home.z;
+            const cyc = beats % 32;
+            rig.solo = rig.soloist && playing && cyc >= 16 && cyc < 30;
+            if (rig.solo) { tz = rig.frontZ; tx = rig.home.x + (rig.stageX - rig.home.x) * 0.35; }
+            else if (playing) tx += Math.sin(beats * Math.PI / 16 + rig.seed) * rig.sway;
+            const k = 1 - Math.exp(-dt * 1.8);
+            rig.root.position.x += (tx - rig.root.position.x) * k;
+            rig.root.position.z += (tz - rig.root.position.z) * k;
+        }
         // Singers open their mouths
         if (rig.mouth && (role === 'vocal' || role === 'singer' || role === 'mc' || role === 'vocalGuitar' || role === 'vocalAcoustic')) {
             rig.mouth.scale.y = playing ? 0.35 + 0.8 * Math.abs(Math.sin(t * 7.3 + rig.seed)) * e : 0.32;
@@ -897,6 +915,12 @@ const Characters = (() => {
             g.scale.setScalar(ph * look.height);
             g.position.set(x, y, z);
             rig.baseY = y; rig.scale = ph;
+            rig.home = { x, z };
+            rig.stageX = st.x;
+            rig.frontZ = st.z + st.d / 2 - 0.22 * ph;
+            rig.mobile = ['guitar', 'bass', 'acoustic', 'singer', 'mc'].includes(role);
+            rig.soloist = (role === 'guitar' || role === 'acoustic') && i === 0;
+            rig.sway = role === 'singer' || role === 'mc' ? Math.min(st.w * 0.14, 0.9) : Math.min(st.w * 0.05, 0.3);
             rig.baseRot = role === 'drums' ? 0 : -spots[i][0] * 0.6;
             g.rotation.y = rig.baseRot;
             g.userData.rig = rig;
@@ -1037,7 +1061,8 @@ const Characters = (() => {
         const { m4, q, p, sc } = crowd;
         for (let i = 0; i < n; i++) {
             const f = crowd.fans[i], s = f.slot;
-            const y = s.seated ? -0.2 * ph : Math.abs(Math.sin(t * bpm + s.phase)) * amp * ph + (s.vip ? 0.15 : 0);
+            const hop = o.beat != null ? Math.PI * o.beat + s.phase * 0.3 : t * bpm + s.phase;
+            const y = s.seated ? -0.2 * ph : Math.abs(Math.sin(hop)) * amp * ph + (s.vip ? 0.15 : 0);
             p.set(s.x, y, s.z);
             q.setFromAxisAngle(UP, f.yaw + (o.playing ? Math.sin(t * 0.7 + s.phase) * 0.08 : 0));
             const k = f.scale * ph;
