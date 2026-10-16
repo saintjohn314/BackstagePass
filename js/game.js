@@ -664,16 +664,16 @@ const Game = {
 
     setDesignerView(view, silent) {
         const d = this.ui.designer;
-        if (view === '3d' && !this.ensureScene()) {
-            view = 'plan';
-            if (!silent) this.toast('3D view needs WebGL, which this browser has turned off. Using the blueprint.', 'bad');
-        }
+        // No WebGL on this device? Show the CSS 3D diorama instead of the flat blueprint.
+        if (view === '3d' && !this.ensureScene()) view = 'iso';
         d.view = view;
         this.ui.designerView = view;
-        document.querySelectorAll('#view-mode button').forEach(b => b.classList.toggle('on', b.dataset.v === view));
+        document.querySelectorAll('#view-mode button').forEach(b => b.classList.toggle('on', b.dataset.v === (view === 'iso' ? '3d' : view)));
         document.getElementById('three-host').classList.toggle('hidden', view !== '3d');
-        document.getElementById('plan-host').classList.toggle('hidden', view !== 'plan');
-        document.getElementById('camera-presets').classList.toggle('hidden', view !== '3d');
+        const planHost = document.getElementById('plan-host');
+        planHost.classList.toggle('hidden', view === '3d');
+        planHost.classList.toggle('iso', view === 'iso');
+        document.getElementById('camera-presets').classList.toggle('hidden', view === 'plan');
         if (view === '3d') {
             this.scene.attach(document.getElementById('three-host'));
             this.scene.setMode('design');
@@ -705,13 +705,16 @@ const Game = {
     renderCameraPresets() {
         const host = document.getElementById('camera-presets');
         const presets = [['door', 'FROM THE DOOR'], ['stage', 'FROM THE STAGE'], ['balcony', 'BALCONY'], ['top', 'OVERHEAD']];
-        const cur = this.scene ? this.scene.preset : 'door';
+        const d = this.ui.designer;
+        const cur = d && d.view === 'iso' ? (d.isoCam || 'door') : this.scene ? this.scene.preset : 'door';
         host.innerHTML = presets.map(([k, l]) => `<button data-p="${k}" class="${cur === k ? 'on' : ''}" onclick="Game.setCamera('${k}')">${icon('camera')}${l}</button>`).join('');
     },
 
     setCamera(p) {
-        if (!this.scene) return;
-        this.scene.setCamera(p);
+        const d = this.ui.designer;
+        if (d && d.view === 'iso') { d.isoCam = p; this.renderPlan(); }
+        else if (this.scene) this.scene.setCamera(p);
+        else return;
         document.querySelectorAll('#camera-presets button').forEach(b => b.classList.toggle('on', b.dataset.p === p));
     },
 
@@ -793,7 +796,18 @@ const Game = {
         const v = this.designerDef();
         const host = document.getElementById('plan-host');
         const rect = host.getBoundingClientRect();
-        const cell = Math.max(18, Math.min(64, Math.floor(Math.min((rect.width || 600) - 50, ((rect.height || 400) - 50) * v.cols / v.rows) / v.cols)));
+        // 'iso' is the 3D diorama (tilted and turned like a camera angle); 'plan' is the flat blueprint.
+        const iso = d.view === 'iso';
+        const camName = iso ? (d.isoCam || 'door') : 'top';
+        const turn = { door: 35, balcony: -35, stage: 215, top: 0 }[camName] || 0;
+        const tilt = camName === 'top' ? 0 : 56;
+        const A = turn * Math.PI / 180, T = tilt * Math.PI / 180;
+        const wallCells = tilt ? 1.15 : 0;
+        const spanW = Math.abs(v.cols * Math.cos(A)) + Math.abs(v.rows * Math.sin(A));
+        const spanH = (Math.abs(v.cols * Math.sin(A)) + Math.abs(v.rows * Math.cos(A))) * Math.cos(T) + wallCells * Math.sin(T) * 1.3;
+        const fit = Math.min(((rect.width || 600) - (iso ? 70 : 50)) / spanW, ((rect.height || 400) - (iso ? 150 : 50)) / spanH);
+        const cell = Math.max(iso ? 14 : 18, Math.min(iso ? 84 : 64, Math.floor(fit * (iso ? 1.08 : 1))));
+        const stageLift = iso ? Math.round(cell * 0.32) : 0;
         const doors = Sim.doorCellSet(v);
         const dead = new Set((d.report.trapped || []).map(([r, c]) => r * 1000 + c));
         const cov = d.overlay ? d.report.coverage : null;
@@ -815,13 +829,22 @@ const Game = {
                 cells += `<div class="${cls}" data-r="${r}" data-c="${c}" style="${style}"></div>`;
             }
         }
+        // How tall each fixture stands in the diorama, in squares
+        const TALL = { bar: 0.55, cocktail: 0.55, restroom: 0.95, merch: 0.42, greenroom: 0.8, pa: 1.25, linearray: 1.45, delay: 1.35, foh: 0.45, pars: 0.38, movers: 0.42, ledwall: 1.05, fog: 0.22, barrier: 0.38, seating: 0.32, vip: 0.22, neon: 0.18, mural: 0.14, arcade: 0.85 };
+        const faces = iso ? '<i class="f n"></i><i class="f s"></i><i class="f e"></i><i class="f w"></i>' : '';
+        const seen = this._planSeen || new Set();
         const items = d.draft.map(i => {
             const it = DATA.ITEMS[i.type];
             const fresh = !this.vState(d.venueId).items.some(x => x.id === i.id);
-            return `<div class="plan-item" style="left:${i.c * cell + 2}px;top:${i.r * cell + 2}px;width:${i.w * cell - 4}px;height:${i.h * cell - 4}px;background:${it.color};${fresh ? 'outline:2px dashed #fff;' : ''}" title="${esc(it.name)}">${icon(i.type)}</div>`;
+            const h = Math.round(cell * (TALL[i.type] || 0.5));
+            const z = (Sim.isStage(v, i.r, i.c) ? stageLift : 0) + h;
+            const drop = iso && !seen.has(i.id) ? ' drop' : '';
+            return `<div class="plan-item${drop}" style="left:${i.c * cell + 2}px;top:${i.r * cell + 2}px;width:${i.w * cell - 4}px;height:${i.h * cell - 4}px;background:${it.color};--c:${it.color};--h:${h}px;--z:${z}px;${fresh ? 'outline:2px dashed #fff;' : ''}" title="${esc(it.name)}">${icon(i.type)}${faces}</div>`;
         }).join('');
+        this._planSeen = new Set(d.draft.map(i => i.id));
+        this._plan = { cell, stageLift, TALL, faces };
         const st = v.stage;
-        const stageLabel = `<div class="plan-stage-label" style="left:${st.x * cell}px;top:0;width:${st.w * cell}px;height:${st.d * cell}px">STAGE</div>`;
+        const stageLabel = `<div class="plan-stage-label" style="left:${st.x * cell}px;top:0;width:${st.w * cell}px;height:${st.d * cell}px;--h:${stageLift}px">${faces}<span>STAGE</span></div>`;
         const doorEls = v.doors.map(dr => {
             const dc = Sim.doorCell(v, dr);
             const t = 10;
@@ -831,7 +854,24 @@ const Game = {
             else s = `left:${v.cols * cell - 2}px;top:${dc.r * cell + 3}px;width:${t}px;height:${cell - 6}px`;
             return `<div class="plan-door ${dr.kind}" style="${s}" title="${dr.kind === 'main' ? 'Main entrance' : 'Fire exit'}"></div>`;
         }).join('');
-        host.innerHTML = `<div class="plan" id="plan-grid" style="--cell:${cell}px;grid-template-columns:repeat(${v.cols}, ${cell}px)">${cells}${stageLabel}${items}${doorEls}</div>`;
+        // The two far walls for this camera angle, with their doorways
+        let walls = '';
+        if (iso && tilt) {
+            const far = { door: ['n', 'w'], balcony: ['n', 'e'], stage: ['s', 'e'] }[camName];
+            const sideOf = { n: 'top', s: 'bottom', w: 'left', e: 'right' };
+            far.forEach(w => {
+                const ways = v.doors.filter(dr => dr.side === sideOf[w]).map(dr => {
+                    const dc = Sim.doorCell(v, dr);
+                    const along = (w === 'n' || w === 's' ? dc.c : dc.r) * cell + cell * 0.14;
+                    return `<i class="wd ${dr.kind}" style="${w === 'n' || w === 's' ? 'left' : 'top'}:${along}px;--len:${cell * 0.72}px"></i>`;
+                }).join('');
+                const curtain = w === 'n' ? `<i class="curtain" style="left:${st.x * cell}px;width:${st.w * cell}px"></i>` : '';
+                walls += `<div class="plan-wall ${w}">${curtain}${ways}</div>`;
+            });
+        }
+        const lift = iso && tilt ? Math.round(-cell * 0.35) : 0;
+        const view = iso ? `--tilt:${tilt}deg;--rot:${turn}deg;--lift:${lift}px;--sh:${stageLift}px;--wh:${Math.round(cell * wallCells)}px;` : '';
+        host.innerHTML = `<div class="plan" id="plan-grid" data-cam="${camName}" style="--cell:${cell}px;${view}grid-template-columns:repeat(${v.cols}, ${cell}px)">${walls}${cells}${stageLabel}${items}${doorEls}</div>`;
         const grid = document.getElementById('plan-grid');
         grid.onmousemove = e => { const t = e.target.closest('.plan-cell'); if (t) this.designerHover(+t.dataset.r, +t.dataset.c); };
         grid.onmouseleave = () => this.designerLeave();
@@ -842,11 +882,19 @@ const Game = {
 
     renderPlanGhost(rect, ok) {
         document.querySelectorAll('.plan-cell.ghost-ok, .plan-cell.ghost-bad').forEach(el => el.classList.remove('ghost-ok', 'ghost-bad'));
+        const old = document.getElementById('plan-ghost');
+        if (old) old.remove();
         if (!rect) return;
         for (let r = rect.r; r < rect.r + rect.h; r++) for (let c = rect.c; c < rect.c + rect.w; c++) {
             const el = document.querySelector(`.plan-cell[data-r="${r}"][data-c="${c}"]`);
             if (el) el.classList.add(ok ? 'ghost-ok' : 'ghost-bad');
         }
+        // In the 3D diorama, preview the fixture as a see-through block
+        const d = this.ui.designer, p = this._plan, grid = document.getElementById('plan-grid');
+        if (!d || d.view !== 'iso' || d.tool === 'erase' || !p || !grid) return;
+        const h = Math.round(p.cell * (p.TALL[d.tool] || 0.5));
+        const z = (Sim.isStage(this.designerDef(), rect.r, rect.c) ? p.stageLift : 0) + h;
+        grid.insertAdjacentHTML('beforeend', `<div id="plan-ghost" class="plan-item ghost ${ok ? 'ok' : 'bad'}" style="left:${rect.c * p.cell + 2}px;top:${rect.r * p.cell + 2}px;width:${rect.w * p.cell - 4}px;height:${rect.h * p.cell - 4}px;--h:${h}px;--z:${z}px">${icon(d.tool)}${p.faces}</div>`);
     },
 
     renderReport() {
