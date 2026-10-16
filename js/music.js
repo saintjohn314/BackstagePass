@@ -128,6 +128,44 @@ const Music = (() => {
         });
     }
 
+    // Overdriven lead guitar: two detuned voices through an amp, with
+    // whammy-style bends and vibrato that fades in on long notes.
+    function rockLead(t, note, dur, bend) {
+        const f = midiHz(note);
+        const pre = ctx.createGain(), sh = ctx.createWaveShaper(), lp = ctx.createBiquadFilter(), body = ctx.createBiquadFilter(), g = ctx.createGain();
+        const vib = ctx.createOscillator(), vg = ctx.createGain();
+        vib.frequency.value = 5.6;
+        vg.gain.setValueAtTime(0, t);
+        vg.gain.linearRampToValueAtTime(dur > 0.3 ? 16 : 0, t + Math.min(dur, 0.6));
+        vib.connect(vg);
+        const voices = ['sawtooth', 'square'].map((type, i) => {
+            const o = ctx.createOscillator();
+            o.type = type;
+            if (bend) { o.frequency.setValueAtTime(midiHz(note - 2), t); o.frequency.exponentialRampToValueAtTime(f, t + 0.1); }
+            else o.frequency.setValueAtTime(f, t);
+            o.detune.value = i ? 5 : -5;
+            vg.connect(o.detune);
+            o.connect(pre);
+            return o;
+        });
+        pre.gain.value = 0.5;
+        sh.curve = distCurve(28); sh.oversample = '2x';
+        lp.type = 'lowpass'; lp.frequency.value = 2500; lp.Q.value = 0.7;
+        body.type = 'peaking'; body.frequency.value = 850; body.gain.value = 5; body.Q.value = 0.9;
+        env(g, t, 0.006, 0.05, dur, Math.min(0.12, dur / 3));
+        pre.connect(sh).connect(lp).connect(body).connect(g);
+        g.connect(musicBus);
+        g.connect(revSend);
+        const dl = ctx.createDelay(); dl.delayTime.value = 0.38;
+        const fb = ctx.createGain(); fb.gain.value = 0.2;
+        const wet = ctx.createGain(); wet.gain.value = 0.22;
+        g.connect(dl); dl.connect(fb).connect(dl); dl.connect(wet).connect(musicBus);
+        const end = t + dur + 0.05;
+        voices.forEach(o => { o.start(t); o.stop(end); });
+        vib.start(t); vib.stop(end);
+        setTimeout(() => { try { dl.disconnect(); fb.disconnect(); wet.disconnect(); } catch (e) { /* gone */ } }, (t - ctx.currentTime + dur + 2.5) * 1000);
+    }
+
     function bass(t, note, dur, type = 'sawtooth', vol = 0.32) {
         const o = ctx.createOscillator(), o2 = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
         o.type = type; o2.type = 'sine';
@@ -179,19 +217,36 @@ const Music = (() => {
     ];
     const CHORUS_ROOTS = [-4, 3, -2, 0];   // C G D E relative to E
 
-    // The menu theme: "Backstage Anthem" (E minor, 140 BPM).
+    // The menu theme: "Loading Dock Stomp" (A, 116 BPM) — a mid-tempo hard-rock
+    // groove: riff, chorus, guitar solo. Riff events: [step, semitones, 16ths, mute]
+    const HR_RIFF = [
+        [[0, 0, 2, 0], [2, 0, 1, 1], [3, 0, 1, 1], [4, 3, 2, 0], [6, 0, 1, 1], [7, 5, 3, 0], [10, 0, 1, 1], [11, 0, 1, 1], [12, 7, 2, 0], [14, 5, 1, 0], [15, 3, 1, 0]],
+        [[0, 0, 2, 0], [2, 0, 1, 1], [3, 0, 1, 1], [4, 3, 2, 0], [6, 0, 1, 1], [7, 5, 3, 0], [10, 7, 2, 0], [12, 10, 2, 0], [14, 7, 2, 0]]
+    ];
+    const HR_CHORUS = [5, 0, -2, 7]; // D A G E
+    // Lead lines: [step, MIDI note, 16ths, bend]
+    const HR_HOOK = [
+        [[0, 81, 6, 1], [6, 79, 2], [8, 76, 4], [12, 74, 4]],
+        [[0, 76, 6, 1], [6, 74, 2], [8, 72, 4], [12, 69, 4]],
+        [[0, 79, 4, 1], [4, 76, 2], [6, 74, 2], [8, 79, 4], [12, 81, 4]],
+        [[0, 83, 8, 1], [8, 79, 2], [10, 76, 2], [12, 74, 2], [14, 72, 2]]
+    ];
+    const HR_SOLO = [
+        [[0, 76, 3, 1], [3, 79, 1], [4, 81, 4, 1], [8, 79, 2], [10, 76, 2], [12, 74, 2], [14, 72, 2]],
+        [[0, 74, 2, 1], [2, 72, 2], [4, 69, 4], [8, 72, 1], [9, 74, 1], [10, 75, 1], [11, 76, 5, 1]],
+        [[0, 81, 2], [2, 79, 2], [4, 76, 2], [6, 79, 2], [8, 81, 6, 1], [14, 84, 2]],
+        [[0, 81, 2], [2, 79, 1], [3, 76, 1], [4, 74, 2], [6, 72, 2], [8, 69, 8, 1]]
+    ];
     function anthemBar(bar) {
-        // 0-1 intro, 2-9 riff (lead 6-9), 10-13 chorus, 14-17 riff + lead, 18-19 breakdown, 20-23 chorus + lead
-        if (bar < 2) return { sec: 'intro', i: bar };
-        if (bar < 10) return { sec: 'riff', i: bar - 2, lead: bar >= 6 ? MEL_1[(bar - 6) % 4] : null };
-        if (bar < 14) return { sec: 'chorus', i: bar - 10 };
-        if (bar < 18) return { sec: 'riff', i: bar - 14, lead: MEL_1[(bar - 14) % 4] };
-        if (bar < 20) return { sec: 'break', i: bar - 18 };
-        return { sec: 'chorus', i: bar - 20, lead: MEL_CHORUS[bar - 20] };
+        // 0-1 guitar intro, 2-9 riff, 10-13 chorus with the hook, 14-17 riff with a solo
+        if (bar < 2) return { sec: 'hrIntro', i: bar };
+        if (bar < 10) return { sec: 'hrRiff', i: bar - 2 };
+        if (bar < 14) return { sec: 'hrChorus', i: bar - 10, rockLead: HR_HOOK[bar - 10] };
+        return { sec: 'hrRiff', i: bar - 14, rockLead: HR_SOLO[bar - 14] };
     }
 
     const STYLES = {
-        anthem: { bpm: 140, key: 40, bars: 24, loopTo: 2, vol: 1, arrange: anthemBar },
+        anthem: { bpm: 116, key: 45, bars: 18, loopTo: 2, vol: 0.3, arrange: anthemBar },
         rock:   { bpm: 150, key: 45, bars: 16, loopTo: 0, vol: 0.55, arrange: b => b % 8 < 4 ? { sec: 'riff', i: b % 4, lead: b >= 8 ? MEL_1[b % 4].map(n => [n[0], n[1] + 5, n[2], n[3]]) : null } : { sec: 'chorus', i: b % 4 } },
         punk:   { bpm: 178, key: 43, bars: 8, loopTo: 0, vol: 0.55, arrange: b => b < 4 ? { sec: 'punk', i: b } : { sec: 'chorus', i: b - 4 } },
         electro: { bpm: 124, key: 45, bars: 16, loopTo: 0, vol: 0.5, arrange: b => ({ sec: b < 8 ? 'electro' : 'electro2', i: b % 4 }) },
@@ -229,6 +284,37 @@ const Music = (() => {
                 if (s % 2 === 0) hat(t, s === 14);
                 if (s === 0 && a.i === 0) crash(t);
                 if (lastBarOfPhrase && s >= 12) { snare(t, 0.6); if (s === 14) tom(t, 110); }
+                break;
+            }
+            case 'hrIntro': {
+                // The guitar plays the riff alone, then the drums count the band in
+                HR_RIFF[a.i].forEach(([at, n, len, mute]) => { if (at === s) powerChord(t, K + n, s16 * len, !!mute); });
+                if (a.i === 1) {
+                    if (s % 2 === 0) hat(t, false, 0.6);
+                    if (s >= 12) { snare(t, 0.35 + (s - 12) * 0.15); if (s === 14) tom(t, 120); }
+                }
+                break;
+            }
+            case 'hrRiff': {
+                const riff = HR_RIFF[a.i % 4 === 3 ? 1 : 0];
+                riff.forEach(([at, n, len, mute]) => { if (at === s) powerChord(t, K + n, s16 * len, !!mute); });
+                if (s % 2 === 0) { const root = (riff.filter(e => e[0] <= s).pop() || [0, 0])[1]; bass(t, K - 12 + root, s16 * 1.7); }
+                if (s === 0 || s === 7 || s === 10) kick(t, 0.9);
+                if (s === 4 || s === 12) snare(t, 0.85);
+                if (s % 2 === 0) hat(t, false, s % 4 === 0 ? 0.8 : 0.55);
+                if (s === 0 && a.i % 4 === 0) crash(t);
+                if (lastBarOfPhrase && s >= 12) tom(t, [165, 140, 115, 95][s - 12]);
+                break;
+            }
+            case 'hrChorus': {
+                const root = HR_CHORUS[a.i % 4];
+                if (s === 0 || s === 6 || s === 10) powerChord(t, K + root, s16 * (s === 6 ? 3.6 : 5.6), false);
+                if (s === 14) powerChord(t, K + HR_CHORUS[(a.i + 1) % 4], s16 * 2, true);
+                if (s % 2 === 0) bass(t, K - 12 + root, s16 * 1.8);
+                if (s === 0 || s === 6 || s === 10) kick(t, 0.9);
+                if (s === 4 || s === 12) snare(t, 0.85);
+                if (s % 2 === 0) hat(t, true, 0.5);
+                if (s === 0) crash(t);
                 break;
             }
             case 'punk': {
@@ -285,6 +371,7 @@ const Music = (() => {
         }
         // Lead melody on top
         if (a.lead) a.lead.forEach(([at, note, len, bend]) => { if (at === s) lead(t, note + (K - 40), s16 * len * 0.95, { bend: !!bend }); });
+        if (a.rockLead) a.rockLead.forEach(([at, note, len, bend]) => { if (at === s) rockLead(t, note, s16 * len * 0.95, !!bend); });
         return s16;
     }
 
