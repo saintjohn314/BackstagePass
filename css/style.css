@@ -711,10 +711,17 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
 }
 @media (max-width: 640px) {
     .marquee { top: 52px; font-size: 1rem; max-width: calc(100% - 24px); }
-    .live-view { aspect-ratio: 4 / 3; }
+    /* A fixed height instead of an aspect ratio: with a 300px minimum, 4:3 forced the view to 400px wide and pushed it off narrow phones. */
+    .live-view { aspect-ratio: auto; min-height: 0; height: clamp(250px, 80vw, 380px); }
     .live-status { font-size: 0.56rem; }
     .speed-ctl { right: 8px; }
     .speed-ctl .seg button { padding: 5px 7px; }
+    /* Let long effect notes ("depends on your standard security") wrap instead of running out of the button */
+    .choice small { white-space: normal; text-align: right; max-width: 45%; }
+}
+/* Phones held sideways: keep the whole live view, crisis box included, on screen */
+@media (max-width: 900px) and (max-height: 520px) {
+    .live-view { aspect-ratio: auto; min-height: 0; height: calc(100vh - var(--hud-h) - 44px); }
 }
 @media (max-width: 480px) {
     .hud-stat .hud-label { font-size: 0.52rem; }
