@@ -721,41 +721,16 @@ const Scene3D = (() => {
             });
             slots.sort((a, b) => a.front - b.front);
             anim.slots = slots.slice(0, max);
-            const ph = geo.ph;
-            const bodyGeo = new THREE.CapsuleGeometry(0.11 * ph, 0.5 * ph, 2, 6);
-            const headGeo = new THREE.SphereGeometry(0.1 * ph, 8, 6);
-            const bodyMat = new THREE.MeshStandardMaterial({ roughness: 0.9 });
-            const headMat = new THREE.MeshStandardMaterial({ color: 0xc89a7a, roughness: 0.8 });
-            const crowd = new THREE.InstancedMesh(bodyGeo, bodyMat, anim.slots.length);
-            const heads = new THREE.InstancedMesh(headGeo, headMat, anim.slots.length);
-            const palette = [0x15151a, 0x22222a, 0x3a1a1a, 0x1a2a3a, 0x2a2a2a, 0x4a3a2a, 0x2a1a3a, 0x101010];
-            const skin = [0xe0b090, 0xc89a7a, 0x8a5a3a, 0x5a3a2a, 0xf0c8a8];
-            const col = new THREE.Color();
-            anim.slots.forEach((s, i) => {
-                crowd.setColorAt(i, col.setHex(palette[i % palette.length]));
-                heads.setColorAt(i, col.setHex(skin[(i * 7) % skin.length]));
-            });
-            crowd.count = 0; heads.count = 0;
-            liveGroup.add(crowd, heads);
-            anim.crowd = crowd; anim.heads = heads;
+            anim.crowd = Characters.buildCrowd(anim.slots, geo.ph, self.quality);
+            if (anim.crowd) liveGroup.add(anim.crowd.group);
+            buildBand();
+        }
 
-            // Band on stage
-            const st = geo.stage;
-            const bandMat = new THREE.MeshStandardMaterial({ color: 0x0c0c0e, roughness: 0.6 });
-            const instMat = new THREE.MeshStandardMaterial({ color: 0xb02020, metalness: 0.4, roughness: 0.3 });
-            const spots = [[-0.3, 0.15], [0, 0.3], [0.3, 0.15], [0, -0.22]];
-            spots.forEach(([fx, fz], i) => {
-                const g = new THREE.Group();
-                const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.12 * ph, 0.55 * ph, 2, 8), bandMat);
-                body.position.y = 0.4 * ph; g.add(body);
-                const head = new THREE.Mesh(new THREE.SphereGeometry(0.1 * ph, 10, 8), bandMat); head.position.y = 0.85 * ph; g.add(head);
-                if (i === 0 || i === 2) { const gtr = box(0.42 * ph, 0.12 * ph, 0.04, instMat); gtr.position.set(0, 0.42 * ph, 0.12 * ph); gtr.rotation.z = 0.5; g.add(gtr); }
-                if (i === 1) { const mic = cyl(0.01, 0.01, 0.9 * ph, M('chrome', {}), 6); mic.position.set(0, 0.45 * ph, 0.25 * ph); g.add(mic); }
-                g.position.set(st.x + fx * st.w, geo.stageH + (i === 3 ? 0.12 : 0), st.z + fz * st.d);
-                g.visible = false;
-                liveGroup.add(g);
-                anim.band.push(g);
-            });
+        // Band on stage: genre-styled musicians for whoever is playing right now.
+        function buildBand() {
+            anim.band.forEach(m => { liveGroup.remove(m); dispose(m); });
+            anim.band = Characters.buildBand({ act: live.act, genre: live.genre, ph: geo.ph, stage: geo.stage, stageH: geo.stageH });
+            anim.band.forEach(m => liveGroup.add(m));
         }
 
         self.setLive = (o) => {
@@ -764,6 +739,11 @@ const Scene3D = (() => {
             if (o.playing !== undefined) live.playing = o.playing;
             if (o.phase !== undefined) live.phase = o.phase;
             if (o.genre) live.color.set(Sim.D.GENRES[o.genre].color);
+            // A new act (or genre) on stage means a new band to draw.
+            let rebuild = false;
+            if (o.genre && o.genre !== live.genre) { live.genre = o.genre; rebuild = !live.act; }
+            if (o.act && (!live.act || o.act.id !== live.act.id)) { live.act = o.act; rebuild = true; }
+            if (rebuild && self.mode === 'live' && self.report && geo.stage) buildBand();
         };
         self.pulse = x => { live.pulse = Math.max(live.pulse, x); };
         self.alarm = on => { live.alarm = on; };
@@ -931,25 +911,9 @@ const Scene3D = (() => {
             // Crowd
             if (anim.crowd && self.mode === 'live') {
                 const n = Math.min(anim.slots.length, Math.round(anim.slots.length * Math.min(1, live.crowd)));
-                const ph = geo.ph;
-                const m4 = new THREE.Matrix4();
-                const bounceAmp = live.playing ? 0.04 + live.vibe * 0.18 : 0.01;
                 const bpm = 2.2 + live.vibe * 1.6;
-                for (let i = 0; i < n; i++) {
-                    const s = anim.slots[i];
-                    const y = s.seated ? 0.3 * ph : Math.abs(Math.sin(t * bpm + s.phase)) * bounceAmp * ph + 0.36 * ph + (s.vip ? 0.15 : 0);
-                    m4.makeTranslation(s.x, y, s.z);
-                    anim.crowd.setMatrixAt(i, m4);
-                    m4.makeTranslation(s.x, y + 0.4 * ph, s.z);
-                    anim.heads.setMatrixAt(i, m4);
-                }
-                anim.crowd.count = n; anim.heads.count = n;
-                anim.crowd.instanceMatrix.needsUpdate = true; anim.heads.instanceMatrix.needsUpdate = true;
-                anim.band.forEach((b, i) => {
-                    b.visible = live.playing && live.phase > 0 && live.phase < 5;
-                    b.position.y = geo.stageH + (i === 3 ? 0.12 : 0) + (live.playing ? Math.abs(Math.sin(t * bpm * 1.1 + i)) * 0.05 * ph : 0);
-                    b.rotation.y = Math.sin(t * 1.3 + i) * 0.25;
-                });
+                Characters.animateCrowd(anim.crowd, n, t, { playing: live.playing, vibe: live.vibe, bpm });
+                Characters.animateBand(anim.band, t, { visible: live.playing && live.phase > 0 && live.phase < 5, playing: live.playing, vibe: live.vibe });
             }
             renderer.render(scene, camera);
         }
@@ -976,7 +940,8 @@ const Scene3D = (() => {
         }
         self.setMode = mode => {
             self.mode = mode;
-            if (mode === 'design') { dispose(liveGroup); anim.crowd = null; }
+            if (mode === 'design') { dispose(liveGroup); anim.crowd = null; anim.band = []; }
+            if (mode === 'live') live.act = null;
             buildMarkers();
         };
         self.setLayout = (v, items, floorId, report, resetCamera) => {
