@@ -26,7 +26,7 @@ const SCREEN_ART = {
     'screen-main-menu': 'menu', 'screen-settings': 'settings', 'screen-intro': 'intro', 'screen-identity-setup': 'identity',
     'screen-venue-selector': 'market', 'screen-floor-designer': 'blueprint', 'screen-office': 'office', 'screen-books': 'office',
     'screen-band-scouting': 'scout', 'screen-marketing': 'marketing', 'screen-event-card': 'event',
-    'screen-live-show': 'live', 'screen-post-show': 'postshow'
+    'screen-live-show': 'live', 'screen-post-show': 'postshow', 'screen-awards': 'office'
 };
 
 const fmt = n => (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString();
@@ -136,6 +136,8 @@ const Game = {
         this.state = Object.assign(base, saved);
         this.state.stats = Object.assign(base.stats, saved.stats || {});
         this.state.flags = Object.assign(base.flags, saved.flags || {});
+        this.state.achievements = saved.achievements;
+        this.awardsOnLoad();
         this.ui.booking = null;
         this.ui.live = null;
         Music.stop();
@@ -235,6 +237,7 @@ const Game = {
             case 'screen-floor-designer': this.renderDesigner(); break;
             case 'screen-office': this.renderOffice(); break;
             case 'screen-books': this.renderBooks(); break;
+            case 'screen-awards': this.renderAwards(); break;
             case 'screen-band-scouting': this.renderBands(); break;
             case 'screen-marketing': this.renderSetup(); break;
         }
@@ -500,6 +503,7 @@ const Game = {
         this.state.venues[id] = { leased: true, name: v.defaultName, items, floor: 'concrete', shows: 0, best: 0, revenue: 0, profit: 0, since: this.state.day };
         this.state.activeVenueId = id;
         SoundManager.playSFX('money-sound');
+        this.checkAwards();
         this.saveGame(true);
         this.openIdentity();
     },
@@ -967,6 +971,7 @@ const Game = {
         this.changeFunds(-p.net);
         if (p.net > 0) this.state.stats.buildSpent += p.net;
         SoundManager.playSFX('money-sound');
+        this.checkAwards();
         this.saveGame(true);
         this.toast(`Construction complete${p.net > 0 ? ` (${fmt(p.net)})` : ''}. Legal capacity: ${d.report.legalCap.toLocaleString()}.`, 'good');
         this.refreshDesigner();
@@ -1052,6 +1057,7 @@ const Game = {
         const book = document.getElementById('office-book-btn');
         book.disabled = !v || !report.legal;
         document.getElementById('office-scene').classList.toggle('hint', s.stats.shows < 2);
+        this.renderOfficeAwards();
     },
 
     /* =================================================================
@@ -1645,6 +1651,7 @@ const Game = {
         const ch = cr.choices[i];
         const out = ch.key === 'security' ? Sim.securityOutcome(live.ctx.securityId, this.rng) : Sim.resolveEffects(ch.effects, live.ctx.venue.costScale, this.rng);
         this.applyMods(out, cr.title);
+        this.state.stats.crises = (this.state.stats.crises || 0) + 1;
         c.done = true;
         live.crisisOpen = null;
         document.getElementById('interactive-crisis-box').classList.add('hidden');
@@ -1708,12 +1715,15 @@ const Game = {
         if (s.repLog.length > 200) s.repLog.shift();
         const legend = ctx.venue.id === 'stadium' && live.plan.fill >= 0.98 && !s.flags.legend;
         if (legend) s.flags.legend = true;
-        this.ui.lastResult = { r, ctx, plan: live.plan, repBefore, notes: live.notes, legend };
+        this.recordShowForAwards(ctx, live.plan, r);
+        const unlocked = this.checkAwards({ silent: true });
+        this.ui.lastResult = { r, ctx, plan: live.plan, repBefore, notes: live.notes, legend, unlocked };
         this.ui.live = null;
         this.saveGame(true);
         this.renderPost();
         this.switchScreen('screen-post-show');
         SoundManager.playSFX('money-sound');
+        if (unlocked.length) setTimeout(() => this.announceAwards(unlocked), 700);
         if (legend) setTimeout(() => this.modal({
             title: 'LIVING LEGEND',
             html: `<p>You sold out the Metro Mega Stadium. From a leaky warehouse to ${live.plan.attendance.toLocaleString()} screaming fans — ${esc(s.companyName)} is the biggest name in live music.</p><p class="dim">You can keep playing as long as you like.</p>`,
@@ -1778,6 +1788,7 @@ const Game = {
             <div class="vb-row"><span>Now</span><b>${s.rep.toFixed(1)} · ${g1.grade} ${g1.title}</b></div>
             <div class="vb-row"><span>Buzz for next show</span><b class="${s.hype >= 0 ? 'pos' : 'neg'}">${s.hype >= 0 ? '+' : ''}${s.hype}%</b></div>
             ${g1.grade !== g0.grade && s.rep > repBefore ? `<div class="alert good">${icon('star')}<span>Promoted to ${g1.grade}: ${g1.title}! Bigger acts will return your calls.</span></div>` : ''}`;
+        this.renderPostAwards(this.ui.lastResult.unlocked);
     },
 
     proceedToNextGigCycle() {
@@ -1790,6 +1801,7 @@ const Game = {
     // Moves the calendar forward, charging rent each Monday. Returns false on eviction.
     advanceTo(newDay, duringBooking) {
         const s = this.state;
+        const wasOverdue = s.overdue;
         let rentTotal = 0;
         const weeks = [];
         for (let d = s.day + 1; d <= newDay; d++) {
@@ -1809,6 +1821,7 @@ const Game = {
             if (s.overdue) { this.evict(); return false; }
             s.overdue = true;
         } else if (s.funds >= 0) s.overdue = false;
+        if (wasOverdue && !s.overdue) { s.stats.comebacks = (s.stats.comebacks || 0) + 1; this.checkAwards(); }
         this.saveGame(true);
 
         const next = () => { if (!duringBooking) this.switchScreen('screen-office'); };
