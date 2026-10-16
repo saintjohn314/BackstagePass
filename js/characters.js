@@ -970,20 +970,21 @@ const Characters = (() => {
 
     const FAN_TOPS = ['#141416', '#1c1c20', '#0e0e10', '#e8e4dc', '#7a1a1a', '#1a2a4a', '#2a2a2e', '#5a1a3a', '#c4161c', '#3a4a3a', '#141416', '#d4a640', '#4a5a7a'];
     const FAN_PANTS = ['#1e2a44', '#26324a', '#141418', '#2e2e34', '#4a4436', '#1a1a1e', '#33415e'];
-    const FAN_HAIR = ['#17100b', '#2b1a10', '#4a2e1a', '#6e4a2a', '#b58a4e', '#dcc07a', '#8a3a1c', '#8c8c92', '#17100b', '#2b1a10', '#17100b', '#4a2e1a', '#2b1a10', '#b58a4e', '#e0306a', '#4fd1ff'];
+    const FAN_HAIR = ['#17100b', '#2b1a10', '#4a2e1a', '#6e4a2a', '#b58a4e', '#dcc07a', '#8a3a1c', '#8c8c92', '#17100b', '#2b1a10', '#17100b', '#4a2e1a', '#2b1a10', '#b58a4e', '#e0306a', '#2b1a10'];
 
     function buildCrowd(slots, ph, quality) {
         const n = slots.length;
         const group = new THREE.Group();
         const G = crowdGeometries(quality === 'low');
-        const im = (geo, rough) => {
-            const m = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: rough }), Math.max(1, n));
+        // Materials are dimmed so the floor reads as a dark concert crowd and the band pops
+        const im = (geo, rough, tint = 0x6e6e74) => {
+            const m = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ color: tint, roughness: rough }), Math.max(1, n));
             m.count = 0; m.frustumCulled = false;
             group.add(m); return m;
         };
         const parts = {
             legs: im(G.legs, 0.9), hairS: im(G.hairShort, 0.8), hairL: im(G.hairLong, 0.8),
-            torsoA: im(G.torsoA, 0.85), torsoB: im(G.torsoB, 0.85), skinA: im(G.skinA, 0.65), skinB: im(G.skinB, 0.65)
+            torsoA: im(G.torsoA, 0.85), torsoB: im(G.torsoB, 0.85), skinA: im(G.skinA, 0.65, 0x9a8f8a), skinB: im(G.skinB, 0.65, 0x9a8f8a)
         };
         const r = makeRng(n * 7919 + 13);
         const col = new THREE.Color();
