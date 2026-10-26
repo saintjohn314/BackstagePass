@@ -1,1 +1,59 @@
-<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 200 200" width="200" height="200"><metadata><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/"><rdf:Description><dc:creator>RealFaviconGenerator</dc:creator><dc:source>https://realfavicongenerator.net</dc:source></rdf:Description></rdf:RDF></metadata><rect width="200" height="200" fill="url('#gradient')"></rect><defs><linearGradient id="gradient" gradientTransform="rotate(45 0.5 0.5)"><stop offset="0%" stop-color="#cbb277"></stop><stop offset="100%" stop-color="#29150e"></stop></linearGradient></defs><g><g fill="#d0c6d7" transform="matrix(10.69010989010989,0,0,10.69010989010989,27.25215977076647,176.00605761245055)" stroke="#832018" stroke-width="0.2"><path d="M8.87 0L6.36-5.02L4.50-5.02L4.50 0L1.07 0L1.07-14.22L6.67-14.22Q9.20-14.22 10.63-13.10Q12.05-11.97 12.05-9.92L12.05-9.92Q12.05-8.44 11.45-7.46Q10.85-6.48 9.57-5.88L9.57-5.88L12.54-0.15L12.54 0L8.87 0ZM4.50-11.57L4.50-7.67L6.67-7.67Q7.65-7.67 8.14-8.18Q8.63-8.69 8.63-9.61Q8.63-10.53 8.13-11.05Q7.64-11.57 6.67-11.57L6.67-11.57L4.50-11.57Z"></path></g></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="70%">
+      <stop offset="0" stop-color="#2a0507"/>
+      <stop offset="0.6" stop-color="#0d0b0c"/>
+      <stop offset="1" stop-color="#000"/>
+    </radialGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff4136"/>
+      <stop offset="0.55" stop-color="#d0140c"/>
+      <stop offset="1" stop-color="#7a0000"/>
+    </linearGradient>
+    <linearGradient id="letters" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d9d4cc"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <!-- Guitar, tilted, neck to the top right -->
+  <g transform="translate(256 222) scale(0.74) translate(-256 -236) rotate(38 256 236)">
+    <!-- neck & headstock -->
+    <rect x="240" y="28" width="32" height="200" rx="4" fill="#111"/>
+    <rect x="243" y="28" width="26" height="200" fill="#1c1c1c"/>
+    <g stroke="#8a8a8a" stroke-width="3">
+      <line x1="243" y1="70" x2="269" y2="70"/><line x1="243" y1="104" x2="269" y2="104"/>
+      <line x1="243" y1="136" x2="269" y2="136"/><line x1="243" y1="166" x2="269" y2="166"/><line x1="243" y1="194" x2="269" y2="194"/>
+    </g>
+    <path d="M232 -14 h48 l6 46 h-60z" fill="#0a0a0a" stroke="#d0140c" stroke-width="4"/>
+    <circle cx="226" cy="0" r="6" fill="#c9c9c9"/><circle cx="226" cy="22" r="6" fill="#c9c9c9"/>
+    <circle cx="286" cy="0" r="6" fill="#c9c9c9"/><circle cx="286" cy="22" r="6" fill="#c9c9c9"/>
+    <!-- body -->
+    <path d="M256 196 C200 196 168 224 172 262 C175 286 190 296 186 316 C180 344 162 360 168 394 C176 440 220 462 256 462 C292 462 336 440 344 394 C350 360 332 344 326 316 C322 296 337 286 340 262 C344 224 312 196 256 196Z" fill="url(#body)" stroke="#000" stroke-width="10"/>
+    <!-- black pickguard -->
+    <path d="M276 300 C306 304 320 330 316 360 C312 392 290 410 268 412 L262 300Z" fill="#0a0a0a"/>
+    <!-- pickups, bridge, strings -->
+    <rect x="226" y="282" width="60" height="22" rx="5" fill="#111" stroke="#555" stroke-width="2"/>
+    <rect x="226" y="330" width="60" height="22" rx="5" fill="#111" stroke="#555" stroke-width="2"/>
+    <rect x="222" y="384" width="68" height="12" rx="3" fill="#cfcfcf"/>
+    <g stroke="#e6e6e6" stroke-width="1.6" opacity="0.85">
+      <line x1="248" y1="30" x2="246" y2="390"/><line x1="253" y1="30" x2="252" y2="390"/><line x1="259" y1="30" x2="260" y2="390"/><line x1="264" y1="30" x2="266" y2="390"/>
+    </g>
+    <circle cx="308" cy="408" r="9" fill="#111" stroke="#666" stroke-width="2"/>
+    <circle cx="326" cy="380" r="9" fill="#111" stroke="#666" stroke-width="2"/>
+  </g>
+  <!-- BP lettering (drawn as paths so it never depends on installed fonts) -->
+  <g transform="translate(122 318) scale(0.88)" fill="url(#letters)" stroke="#000" stroke-width="9" stroke-linejoin="round" fill-rule="evenodd" paint-order="stroke">
+    <path fill-rule="evenodd" d="M0 0 H82 C122 0 136 18 136 42 C136 60 126 72 112 77 C130 82 142 96 142 118 C142 146 122 160 86 160 H0Z
+             M44 36 V64 H78 C90 64 94 58 94 50 C94 42 90 36 78 36Z
+             M44 96 V124 H82 C96 124 100 118 100 110 C100 102 96 96 82 96Z"/>
+    <path fill-rule="evenodd" d="M160 0 H246 C286 0 304 24 304 56 C304 88 286 112 246 112 H206 V160 H160Z
+             M206 38 V74 H240 C254 74 260 66 260 56 C260 46 254 38 240 38Z"/>
+  </g>
+  <!-- Letter counters drawn on top so they always read at small sizes -->
+  <g transform="translate(122 318) scale(0.88)" fill="#0b0909">
+    <path d="M44 34 V64 H78 C90 64 94 58 94 49 C94 40 90 34 78 34Z"/>
+    <path d="M44 96 V126 H82 C96 126 100 120 100 111 C100 102 96 96 82 96Z"/>
+    <path d="M206 36 V76 H240 C254 76 260 67 260 56 C260 45 254 36 240 36Z"/>
+  </g>
+</svg>
